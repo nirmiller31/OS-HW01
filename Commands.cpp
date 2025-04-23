@@ -30,7 +30,7 @@ string _ltrim(const std::string &s) {
     return (start == std::string::npos) ? "" : s.substr(start);
 }
 // Description 34
-// Desc
+// Desc 1666666
 string _rtrim(const std::string &s) {
     size_t end = s.find_last_not_of(WHITESPACE);
     return (end == std::string::npos) ? "" : s.substr(0, end + 1);
