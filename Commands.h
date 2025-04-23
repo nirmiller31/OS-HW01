@@ -10,7 +10,8 @@
 class Command {
     // TODO: Add your data members
 public:
-    Command(const char *cmd_line);
+    Command(const char *cmd_line) {};
+    Command() {};
 
     virtual ~Command();
 
@@ -23,10 +24,12 @@ public:
 
 class BuiltInCommand : public Command {
 public:
-    BuiltInCommand(const char *cmd_line);
+    BuiltInCommand(const char *cmd_line) {};
+    BuiltInCommand() {};
 
-    virtual ~BuiltInCommand() {
-    }
+    virtual ~BuiltInCommand();
+
+    virtual void execute() override;
 };
 
 class ExternalCommand : public Command {
@@ -111,6 +114,20 @@ public:
     }
 
     void execute() override;
+};
+
+class ChPromtCommand : public BuiltInCommand {
+public:
+    ChPromtCommand(const char *cmd_line) {
+        m_argument = mask_chprompt(cmd_line);
+    };
+
+    virtual ~ChPromtCommand() {}
+
+    std::string mask_chprompt(const char *cmd_line);
+    void execute() override;
+private:
+    std::string m_argument;
 };
 
 class ShowPidCommand : public BuiltInCommand {
@@ -242,7 +259,7 @@ public:
 
 class SmallShell {
 private:
-    // TODO: Add your data members
+    std::string prompt;
     SmallShell();
 
 public:
@@ -258,6 +275,14 @@ public:
     }
 
     ~SmallShell();
+
+    std::string get_prompt() {
+        return this->prompt;
+    }
+
+    void set_prompt(std::string new_prompt) {
+        this->prompt = new_prompt;
+    }
 
     void executeCommand(const char *cmd_line);
 
