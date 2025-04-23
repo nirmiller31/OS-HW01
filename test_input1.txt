@@ -7,3 +7,4 @@ chprompt
 sleep 10&
 sleep 12
 quit kill
+// MAMAMA
