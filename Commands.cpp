@@ -11,15 +11,12 @@ using namespace std;
 
 const std::string WHITESPACE = " \n\r\t\f\v";
 
-
-
-// desc2 ya manyak
 #if 0
 #define FUNC_ENTRY()  \
-  cout << __PRETTY_FUNCTION__ << " --> " << endl;
+  cout << _PRETTY_FUNCTION_ << " --> " << endl;
 
 #define FUNC_EXIT()  \
-  cout << __PRETTY_FUNCTION__ << " <-- " << endl;
+  cout << _PRETTY_FUNCTION_ << " <-- " << endl;
 #else
 #define FUNC_ENTRY()
 #define FUNC_EXIT()
@@ -29,8 +26,7 @@ string _ltrim(const std::string &s) {
     size_t start = s.find_first_not_of(WHITESPACE);
     return (start == std::string::npos) ? "" : s.substr(start);
 }
-// Description 34
-// Desc 1666666
+
 string _rtrim(const std::string &s) {
     size_t end = s.find_last_not_of(WHITESPACE);
     return (end == std::string::npos) ? "" : s.substr(0, end + 1);
@@ -77,45 +73,64 @@ void _removeBackgroundSign(char *cmd_line) {
     // truncate the command line string up to the last non-space character
     cmd_line[str.find_last_not_of(WHITESPACE, idx) + 1] = 0;
 }
-
 // TODO: Add your implementation for classes in Commands.h 
 
 SmallShell::SmallShell() {
-// TODO: add your implementation
+      this->prompt = "smash";
 }
 
 SmallShell::~SmallShell() {
 // TODO: add your implementation
 }
 
+Command::~Command() {}
+
+BuiltInCommand::~BuiltInCommand() {}
 /**
 * Creates and returns a pointer to Command class which matches the given command line (cmd_line)
 */
 Command *SmallShell::CreateCommand(const char *cmd_line) {
     // For example:
-  /*
+
   string cmd_s = _trim(string(cmd_line));
   string firstWord = cmd_s.substr(0, cmd_s.find_first_of(" \n"));
 
-  if (firstWord.compare("pwd") == 0) {
-    return new GetCurrDirCommand(cmd_line);
+  if (firstWord.compare("chprompt") == 0) {
+    return new ChPromtCommand(cmd_line);
   }
-  else if (firstWord.compare("showpid") == 0) {
-    return new ShowPidCommand(cmd_line);
-  }
-  else if ...
-  .....
-  else {
-    return new ExternalCommand(cmd_line);
-  }
-  */
+  // if (firstWord.compare("pwd") == 0) {
+  //   return new GetCurrDirCommand(cmd_line);
+  // }
+  // else if (firstWord.compare("showpid") == 0) {
+  //   return new ShowPidCommand(cmd_line);
+  // }
+  // else if ...
+  // .....
+  // else {
+  //   return new ExternalCommand(cmd_line);
+  // }
+
     return nullptr;
 }
 
 void SmallShell::executeCommand(const char *cmd_line) {
+  
     // TODO: Add your implementation here
     // for example:
-    // Command* cmd = CreateCommand(cmd_line);
-    // cmd->execute();
+    Command* cmd = CreateCommand(cmd_line);
+    cmd->execute();
     // Please note that you must fork smash process for some commands (e.g., external commands....)
+}
+
+void BuiltInCommand::execute() {}                       // Maybe remove, if execute will be full
+
+std::string ChPromtCommand::mask_chprompt(const char *cmd_line) {
+  std::string tmp_string;
+  tmp_string = string(cmd_line).substr(8);              // Take the "chprompt" out out of the left side of the string
+  tmp_string = _ltrim(tmp_string).length() ? _ltrim(tmp_string) : "smash";      // Take out the left spaces if exist, if embty take "smash"
+  return tmp_string.substr(0, tmp_string.find_first_of(" \n"));                 // Take the first word from the string
+}
+
+void ChPromtCommand::execute() {
+  SmallShell::getInstance().set_prompt(m_argument);
 }
