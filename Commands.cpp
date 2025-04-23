@@ -101,9 +101,9 @@ Command *SmallShell::CreateCommand(const char *cmd_line) {
   // if (firstWord.compare("pwd") == 0) {
   //   return new GetCurrDirCommand(cmd_line);
   // }
-  // else if (firstWord.compare("showpid") == 0) {
-  //   return new ShowPidCommand(cmd_line);
-  // }
+  else if (firstWord.compare("showpid") == 0) {
+    return new ShowPidCommand();
+  }
   // else if ...
   // .....
   // else {
@@ -126,12 +126,16 @@ void BuiltInCommand::execute() {}                       // Maybe remove, if exec
 
 std::string ChPromtCommand::mask_chprompt(const char *cmd_line) {
   std::string tmp_string;
-  tmp_string = string(cmd_line).substr(8);              // Take the "chprompt" out out of the left side of the string
+  tmp_string = string(cmd_line).substr(8);                                      // Take the "chprompt" out out of the left side of the string
   tmp_string = _ltrim(tmp_string).length() ? _ltrim(tmp_string) : "smash";      // Take out the left spaces if exist, if embty take "smash"
   return tmp_string.substr(0, tmp_string.find_first_of(" \n"));                 // Take the first word from the string
 }
 
 void ChPromtCommand::execute() {
   SmallShell::getInstance().set_prompt(m_argument);
+}
+
+void ShowPidCommand::execute() {
+  std::cout << "smash pid is " << getpid() << std::endl;
 }
 

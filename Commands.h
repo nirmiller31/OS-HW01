@@ -132,10 +132,9 @@ private:
 
 class ShowPidCommand : public BuiltInCommand {
 public:
-    ShowPidCommand(const char *cmd_line);
+    ShowPidCommand() = default;
 
-    virtual ~ShowPidCommand() {
-    }
+    virtual ~ShowPidCommand() {}
 
     void execute() override;
 };
@@ -276,13 +275,8 @@ public:
 
     ~SmallShell();
 
-    std::string get_prompt() {
-        return this->prompt;
-    }
-
-    void set_prompt(std::string new_prompt) {
-        this->prompt = new_prompt;
-    }
+    std::string get_prompt() {return this->prompt;}
+    void set_prompt(std::string new_prompt) {this->prompt = new_prompt;}
 
     void executeCommand(const char *cmd_line);
 
