@@ -101,7 +101,7 @@ class ChangeDirCommand : public BuiltInCommand {
 public:
     ChangeDirCommand(const char *cmd_line, char** plastPwd) {
         m_newDir = take_second_arg(cmd_line);
-        std::cout << "LAst dir is: " << plastPwd << std::endl;
+        std::cout << "LAst dir is: " << *plastPwd << std::endl;
         m_lastDir = plastPwd;
     };
 

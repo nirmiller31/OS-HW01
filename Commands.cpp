@@ -165,7 +165,6 @@ const char* ChangeDirCommand::take_second_arg(const char *cmd_line) {
     if(*tmp_cmd_line) {                                                     // Check if something left after: [cd][spaces][<path>][spaces][---something?---]
       std::cout << "smash error: cd: too many arguements" << std::endl;
     }
-
     return *cmd_line ? cmd_line : nullptr;
 }
 
@@ -179,10 +178,13 @@ void ChangeDirCommand::execute() {
 
 char** SmallShell::get_last_dir() {
   
-  int last_path_size = m_plastPwd.length();                                 // Get path's length
+  size_t last_path_size = m_plastPwd.length();                              // Get path's length
   char** result = new char*[2];                                             // Pointer gen for string & nullptr
   result[0] = new char[last_path_size + 1];                                 // Allocte for string
-  std::strcpy(result[0], m_plastPwd.c_str());
+  for(size_t i=0 ; i<last_path_size ; i++){
+    result[0][i] = m_plastPwd[i];
+  }
+  result[0][last_path_size] = '\0';
   result[1] = nullptr;                                                      // Close with nullptr
 
   return result;
