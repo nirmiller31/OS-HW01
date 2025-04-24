@@ -104,8 +104,9 @@ Command *SmallShell::CreateCommand(const char *cmd_line) {
   else if (firstWord.compare("pwd") == 0) {
     return new GetCurrDirCommand();
   }
-  // else if ...
-  // .....
+  else if (firstWord.compare("cd") == 0) {
+    return new ChangeDirCommand(cmd_line, get_last_dir());
+  }
   // else {
   //   return new ExternalCommand(cmd_line);
   // }
@@ -140,9 +141,11 @@ void ShowPidCommand::execute() {
 }
 
 void GetCurrDirCommand::execute() {
-
   char pwd[200];
   getcwd(pwd, sizeof(pwd));
   std::cout << pwd << std::endl;
 }
 
+void ChangeDirCommand::execute() {
+  chdir(m_newDir);
+}

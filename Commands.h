@@ -99,12 +99,16 @@ public:
 
 class ChangeDirCommand : public BuiltInCommand {
     // TODO: Add your data members public:
-    ChangeDirCommand(const char *cmd_line, char **plastPwd);
+public:
+    ChangeDirCommand(const char *cmd_line, char **plastPwd) {
+        m_newDir = cmd_line;
+    };
 
-    virtual ~ChangeDirCommand() {
-    }
+    virtual ~ChangeDirCommand() {}
 
     void execute() override;
+private:
+    const char* m_newDir;
 };
 
 class GetCurrDirCommand : public BuiltInCommand {
@@ -259,6 +263,7 @@ public:
 
 class SmallShell {
 private:
+    char **m_plastPwd;
     std::string prompt;
     SmallShell();
 
@@ -278,6 +283,7 @@ public:
 
     std::string get_prompt() {return this->prompt;}
     void set_prompt(std::string new_prompt) {this->prompt = new_prompt;}
+    char ** get_last_dir() {return m_plastPwd;}
 
     void executeCommand(const char *cmd_line);
 
