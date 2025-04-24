@@ -76,7 +76,8 @@ void _removeBackgroundSign(char *cmd_line) {
 // TODO: Add your implementation for classes in Commands.h 
 
 SmallShell::SmallShell() {
-      this->prompt = "smash";
+      this->m_prompt = "smash";
+      // this->m_plastPwd = "";
 }
 
 SmallShell::~SmallShell() {
@@ -102,10 +103,10 @@ Command *SmallShell::CreateCommand(const char *cmd_line) {
     return new ShowPidCommand();
   }
   else if (firstWord.compare("pwd") == 0) {
-    return new GetCurrDirCommand(cmd_line);
+    return new GetCurrDirCommand();
   }
   else if (firstWord.compare("cd") == 0) {
-    return new ChangeDirCommand(cmd_line, get_last_dir());
+    return new ChangeDirCommand(cmd_line, cmd_line);
   }
   // else {
   //   return new ExternalCommand(cmd_line);
@@ -132,6 +133,7 @@ std::string ChPromtCommand::mask_chprompt(const char *cmd_line) {
   return tmp_string.substr(0, tmp_string.find_first_of(" \n"));                 // Take the first word from the string
 }
 
+
 void ChPromtCommand::execute() {
   SmallShell::getInstance().set_prompt(m_argument);
 }
@@ -146,6 +148,19 @@ void GetCurrDirCommand::execute() {
   std::cout << pwd << std::endl;
 }
 
+// const char* ChangeDirCommand::mask_chprompt(const char *cmd_line) {
+//   std::string tmp_string;
+//   const char* return_value;
+//   tmp_string = string(cmd_line).substr(3);                                      // Take the "chprompt" out out of the left side of the string
+//   tmp_string = _ltrim(tmp_string).length() ? _ltrim(tmp_string) : "smash";      // Take out the left spaces if exist, if embty take "smash"
+//   return tmp_string.substr(0, tmp_string.find_first_of(" \n"));                 // Take the first word from the string
+//   return_value = tmp_string;
+// }
+
 void ChangeDirCommand::execute() {
-  chdir(m_newDir);
+  // const char* to_change = "/OS-HW01";
+  std::cout << "Changing dir: " << m_newDir << std::endl;
+  if(chdir(m_newDir) != 0){
+    std::cout << "Error cd: " << strerror(errno) << std::endl;
+  }
 }
