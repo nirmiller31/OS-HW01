@@ -77,7 +77,7 @@ void _removeBackgroundSign(char *cmd_line) {
 
 SmallShell::SmallShell() {
       this->m_prompt = "smash";
-      // this->m_plastPwd = "";
+      this->m_plastPwd = "";
 }
 
 SmallShell::~SmallShell() {
@@ -85,6 +85,7 @@ SmallShell::~SmallShell() {
 }
 
 Command::~Command() {}
+
 
 BuiltInCommand::~BuiltInCommand() {}
 /**
@@ -106,7 +107,7 @@ Command *SmallShell::CreateCommand(const char *cmd_line) {
     return new GetCurrDirCommand();
   }
   else if (firstWord.compare("cd") == 0) {
-    return new ChangeDirCommand(cmd_line, cmd_line);
+    return new ChangeDirCommand(cmd_line, get_last_dir());
   }
   // else {
   //   return new ExternalCommand(cmd_line);
@@ -114,6 +115,7 @@ Command *SmallShell::CreateCommand(const char *cmd_line) {
 
     return nullptr;
 }
+
 
 void SmallShell::executeCommand(const char *cmd_line) {
   
@@ -148,19 +150,41 @@ void GetCurrDirCommand::execute() {
   std::cout << pwd << std::endl;
 }
 
-// const char* ChangeDirCommand::mask_chprompt(const char *cmd_line) {
-//   std::string tmp_string;
-//   const char* return_value;
-//   tmp_string = string(cmd_line).substr(3);                                      // Take the "chprompt" out out of the left side of the string
-//   tmp_string = _ltrim(tmp_string).length() ? _ltrim(tmp_string) : "smash";      // Take out the left spaces if exist, if embty take "smash"
-//   return tmp_string.substr(0, tmp_string.find_first_of(" \n"));                 // Take the first word from the string
-//   return_value = tmp_string;
-// }
+const char* ChangeDirCommand::take_second_arg(const char *cmd_line) {
+
+  const char* tmp_cmd_line;
+    
+    while (*cmd_line && std::isspace(*cmd_line)) ++cmd_line;                // Skip leading spaces
+    while (*cmd_line && !std::isspace(*cmd_line)) ++cmd_line;               // Skip the first word
+    while (*cmd_line && std::isspace(*cmd_line)) ++cmd_line;                // Skip spaces after the first word
+
+    tmp_cmd_line = cmd_line;
+//TODO verify that path is coherent!!!!!!!!!!
+    while (*tmp_cmd_line && !std::isspace(*tmp_cmd_line)) ++tmp_cmd_line;   // Skip the given path
+    while (*tmp_cmd_line && std::isspace(*tmp_cmd_line)) ++tmp_cmd_line;    // Skip the spaces after the path
+    if(*tmp_cmd_line) {                                                     // Check if something left after: [cd][spaces][<path>][spaces][---something?---]
+      std::cout << "smash error: cd: too many arguements" << std::endl;
+    }
+
+    return *cmd_line ? cmd_line : nullptr;
+}
 
 void ChangeDirCommand::execute() {
   // const char* to_change = "/OS-HW01";
   std::cout << "Changing dir: " << m_newDir << std::endl;
   if(chdir(m_newDir) != 0){
-    std::cout << "Error cd: " << strerror(errno) << std::endl;
+    perror("smash error: chdir failed");
   }
 }
+
+char** SmallShell::get_last_dir() {
+  
+  int last_path_size = m_plastPwd.length();                                 // Get path's length
+  char** result = new char*[2];                                             // Pointer gen for string & nullptr
+  result[0] = new char[last_path_size + 1];                                 // Allocte for string
+  std::strcpy(result[0], m_plastPwd.c_str());
+  result[1] = nullptr;                                                      // Close with nullptr
+
+  return result;
+}
+

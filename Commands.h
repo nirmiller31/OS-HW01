@@ -99,18 +99,21 @@ public:
 class ChangeDirCommand : public BuiltInCommand {
     // TODO: Add your data members public:
 public:
-    ChangeDirCommand(const char *cmd_line, std::string plastPwd) {
-        // m_newDir = mask_chprompt(cmd_line);
-        m_newDir = cmd_line;
+    ChangeDirCommand(const char *cmd_line, char** plastPwd) {
+        m_newDir = take_second_arg(cmd_line);
+        std::cout << "LAst dir is: " << plastPwd << std::endl;
+        m_lastDir = plastPwd;
     };
 
     virtual ~ChangeDirCommand() {}
 
-    std::string mask_chprompt(const char *cmd_line);
+    const char* take_second_arg(const char *cmd_line);
+    // char** get_last_dir();
 
     void execute() override;
 private:
     const char* m_newDir;
+    char** m_lastDir;
 };
 
 class GetCurrDirCommand : public BuiltInCommand {
@@ -265,9 +268,13 @@ public:
 
 class SmallShell {
 private:
-    // std::string m_plastPwd;
-    std::string m_prompt;
+    // char** m_plastPwd;
+    // std::string m_plastPwd;                                     // TODO check that std::string is fine (they gave char**)
+    
     SmallShell();
+
+    std::string m_plastPwd;
+    std::string m_prompt;
 
 public:
     Command *CreateCommand(const char *cmd_line);
@@ -285,7 +292,7 @@ public:
 
     std::string get_prompt() {return this->m_prompt;}
     void set_prompt(std::string new_prompt) {this->m_prompt = new_prompt;}
-    // std::string get_last_dir() {return m_plastPwd;}
+    char** get_last_dir();
 
     void executeCommand(const char *cmd_line);
 
