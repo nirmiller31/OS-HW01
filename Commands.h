@@ -10,7 +10,8 @@
 class Command {
     // TODO: Add your data members
 public:
-
+    Command(const char *cmd_line) {};
+    Command() {};
     Command(const char *cmd_line) {};
     Command() {};
 
@@ -113,7 +114,7 @@ private:
 
 class GetCurrDirCommand : public BuiltInCommand {
 public:
-    GetCurrDirCommand() = default;
+    GetCurrDirCommand(const char *cmd_line);
 
     virtual ~GetCurrDirCommand() {
     }

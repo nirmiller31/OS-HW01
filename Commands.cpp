@@ -102,7 +102,7 @@ Command *SmallShell::CreateCommand(const char *cmd_line) {
     return new ShowPidCommand();
   }
   else if (firstWord.compare("pwd") == 0) {
-    return new GetCurrDirCommand();
+    return new GetCurrDirCommand(cmd_line);
   }
   else if (firstWord.compare("cd") == 0) {
     return new ChangeDirCommand(cmd_line, get_last_dir());
