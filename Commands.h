@@ -293,6 +293,7 @@ public:
     std::string get_prompt() {return this->m_prompt;}
     void set_prompt(std::string new_prompt) {this->m_prompt = new_prompt;}
     char** get_last_dir();
+    void set_last_dir(std::string plastPwd) {this->m_plastPwd = plastPwd;}
 
     void executeCommand(const char *cmd_line);
 

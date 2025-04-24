@@ -169,10 +169,31 @@ const char* ChangeDirCommand::take_second_arg(const char *cmd_line) {
 }
 
 void ChangeDirCommand::execute() {
-  // const char* to_change = "/OS-HW01";
-  std::cout << "Changing dir: " << m_newDir << std::endl;
-  if(chdir(m_newDir) != 0){
-    perror("smash error: chdir failed");
+
+  char pwd[200];
+  getcwd(pwd, sizeof(pwd));
+  std::string old_string = std::string(pwd);
+
+  if (std::string(m_newDir).compare("-") == 0) {                            // Check if special key activated
+    const char* last_dir = *m_lastDir;                                      // Only use for the previous path
+    if(std::string(last_dir).compare("") == 0) {
+      std::cout << "smash error: cd: OLDPWD not set" << std::endl;
+      return;
+    }
+    else if(chdir(last_dir) != 0){                                          // Change dir to previous saved path
+      perror("smash error: chdir failed");
+    }
+    else {
+      SmallShell::getInstance().set_last_dir(old_string);                   // Succesful change, current path will be the old one
+    }
+  }
+  else{                                                                     // Special key wasnt activated
+    if(chdir(m_newDir) != 0){
+      perror("smash error: chdir failed");
+      }
+    else{
+      SmallShell::getInstance().set_last_dir(old_string);                   // Succesful change, current path will be the old one
+    }
   }
 }
 
