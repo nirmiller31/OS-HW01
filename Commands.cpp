@@ -102,7 +102,7 @@ Command *SmallShell::CreateCommand(const char *cmd_line) {
     return new ShowPidCommand();
   }
   else if (firstWord.compare("pwd") == 0) {
-    return new GetCurrDirCommand(cmd_line);
+    return new GetCurrDirCommand();
   }
   // else if ...
   // .....
@@ -140,6 +140,7 @@ void ShowPidCommand::execute() {
 }
 
 void GetCurrDirCommand::execute() {
+
   char pwd[200];
   getcwd(pwd, sizeof(pwd));
   std::cout << pwd << std::endl;
