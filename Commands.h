@@ -101,14 +101,12 @@ class ChangeDirCommand : public BuiltInCommand {
 public:
     ChangeDirCommand(const char *cmd_line, char** plastPwd) {
         m_newDir = take_second_arg(cmd_line);
-        std::cout << "LAst dir is: " << *plastPwd << std::endl;
         m_lastDir = plastPwd;
     };
 
     virtual ~ChangeDirCommand() {}
 
     const char* take_second_arg(const char *cmd_line);
-    // char** get_last_dir();
 
     void execute() override;
 private:
