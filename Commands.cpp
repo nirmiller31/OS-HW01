@@ -122,9 +122,9 @@ Command *SmallShell::CreateCommand(const char *cmd_line) {
     return new ForegroundCommand(cmd_line, getJobsList());
   }
 
-  // else {
-  //   return new ExternalCommand(cmd_line);
-  // }
+  else {
+    return new ExternalCommand(cmd_line);
+  }
 
     return nullptr;
 }
@@ -366,5 +366,13 @@ void ForegroundCommand::execute(){
     else{
       std::cout << "smash error: fg: invalid arguments" << std::endl;
     }
+  }
+}
+
+void ExternalCommand::execute(){
+  char* args[20]; 
+  _parseCommandLine(m_cmdLine, args);
+  for(int i = 1 ; i<20 ; i++){
+    std::cout << "ExternalCommand" << args[i] << std::endl;
   }
 }

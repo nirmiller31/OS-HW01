@@ -33,8 +33,11 @@ public:
 };
 
 class ExternalCommand : public Command {
+    const char* m_cmdLine;
 public:
-    ExternalCommand(const char *cmd_line);
+    ExternalCommand(const char *cmd_line) {
+        m_cmdLine = cmd_line;
+    };
 
     virtual ~ExternalCommand() {
     }
