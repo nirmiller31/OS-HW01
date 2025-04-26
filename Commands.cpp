@@ -76,6 +76,16 @@ void _removeBackgroundSign(char *cmd_line) {
 }
 // TODO: Add your implementation for classes in Commands.h 
 
+bool _isSpecialExternalComamnd(const char *cmd_line) {
+    int cmd_length = strlen(cmd_line);
+    for(int i = 0; i<cmd_length ; i++){
+      if(cmd_line[i] == '*' || cmd_line[i] == '?'){
+        return true;
+      }
+    }
+    return false;
+}
+
 SmallShell::SmallShell() {
       this->m_prompt = "smash";
       this->m_plastPwd = "";
@@ -369,23 +379,44 @@ void ForegroundCommand::execute(){
   }
 }
 
+//------------------------------------------------------------------------------------------------------------------------------
+// ------------------------------------------External Command methods section---------------------------------------------------
+//------------------------------------------------------------------------------------------------------------------------------
 void ExternalCommand::execute(){
-  char* args[20]; 
-  const char* firstWord = (string(m_cmdLine).substr(0, string(m_cmdLine).find_first_of(" \n"))).c_str();
-  _parseCommandLine(m_cmdLine, args);
 
-  pid_t pid = fork();
+  char* args[21];                                               // To hold the cmd + [MAX]20 arguements
+  
+  char* shorterCmd = new char[strlen(m_cmdLine) + 1];
+  strcpy(shorterCmd, m_cmdLine);                                // Create a shorter (pottentially) modifiable version
 
-  if(pid == 0){                         // New child process
-    if (execvp(firstWord, args) == -1) {
+  bool background_command = _isBackgroundComamnd(m_cmdLine);    // Check if it is a background command (if "&" in the end)
+  if(background_command){_removeBackgroundSign(shorterCmd);}    // Remove the "&" from shortherCmd, we don't need it anymore
+  _parseCommandLine(shorterCmd, args);                          // Take the version without the "&" and divide it to an array
+
+  pid_t pid = fork();                                           // Create a child process
+
+  if(pid == 0){                                                 // New child process code
+    if(_isSpecialExternalComamnd(shorterCmd)) {
+
+      char* bash_exec[] = {"bash", "-c", shorterCmd, nullptr};  // Create an array to run: "bash -c "<original input>""
+      if (execvp("bash", bash_exec) == -1){
+        perror("execvp failed");
+      }
+    }
+    if (execvp(args[0], args) == -1) {                          // Search for the command in PATH env, with our arguments
       perror("execvp failed");
   }
   }
-  else if(pid >0){                      // Parent process
-    wait(nullptr);
+  else if(pid >0){                                              // Parent process code
+    if(!background_command){
+      wait(nullptr);
+    }
   }
-  else{                                 // Failed fork
+  else{                                                         // Failed fork, may not need to print, but know it is here TODO
     std::cout << "Fork failed!" << std::endl;
     return;
   }
 }
+//------------------------------------------------------------------------------------------------------------------------------
+// ------------------------------------------------------End-of-section---------------------------------------------------------
+//------------------------------------------------------------------------------------------------------------------------------
