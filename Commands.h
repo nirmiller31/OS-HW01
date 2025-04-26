@@ -149,6 +149,8 @@ public:
 
 class JobsList;
 
+class SmallShell;
+
 class QuitCommand : public BuiltInCommand {
     // TODO: Add your data members public:
     QuitCommand(const char *cmd_line, JobsList *jobs);
@@ -161,16 +163,32 @@ class QuitCommand : public BuiltInCommand {
 
 
 class JobsList {
+
 public:
     class JobEntry {
-        // TODO: Add your data members
+    public:
+        JobEntry(int newJobId, pid_t newJobPid, Command *cmd);
+
+        ~JobEntry(){}
+
+        int getJobId()const;
+
+        pid_t getPid()const;
+
+        std::string getJobCmdLine()const;
+
+    private: 
+        int m_jobId;
+        pid_t m_pid;
+        std::string m_jobCmdLine;
     };
 
-    // TODO: Add your data members
-public:
-    JobsList();
 
-    ~JobsList();
+
+public:
+    JobsList() = default;
+
+    ~JobsList() = default ;
 
     void addJob(Command *cmd, bool isStopped = false);
 
@@ -184,22 +202,35 @@ public:
 
     void removeJobById(int jobId);
 
-    JobEntry *getLastJob(int *lastJobId);
+    JobEntry *getLastJob();
 
     JobEntry *getLastStoppedJob(int *jobId);
 
+    bool empty()const;
+
+
     // TODO: Add extra methods or modify exisitng ones as needed
+
+private:
+    std::vector<JobEntry> jobsVector;
+    int maxJobId;
+
 };
 
 class JobsCommand : public BuiltInCommand {
-    // TODO: Add your data members
+   
 public:
-    JobsCommand(const char *cmd_line, JobsList *jobs);
+    JobsCommand(const char *cmd_line, JobsList *jobs) {m_jobs = jobs;}
 
     virtual ~JobsCommand() {
     }
 
     void execute() override;
+
+
+private:
+    JobsList* m_jobs;
+
 };
 
 class KillCommand : public BuiltInCommand {
@@ -214,7 +245,7 @@ public:
 };
 
 class ForegroundCommand : public BuiltInCommand {
-    // TODO: Add your data members
+   
 public:
     ForegroundCommand(const char *cmd_line, JobsList *jobs);
 
@@ -222,6 +253,11 @@ public:
     }
 
     void execute() override;
+
+private:
+    JobsList* m_jobs;
+    const char* m_cmdLine;
+
 };
 
 class AliasCommand : public BuiltInCommand {
@@ -273,6 +309,8 @@ private:
 
     std::string m_plastPwd;
     std::string m_prompt;
+    std::string m_lastCmdLine;
+    JobsList* m_jobsList;
 
 public:
     Command *CreateCommand(const char *cmd_line);
@@ -292,8 +330,10 @@ public:
     void set_prompt(std::string new_prompt) {this->m_prompt = new_prompt;}
     char** get_last_dir();
     void set_last_dir(std::string plastPwd) {this->m_plastPwd = plastPwd;}
-
+    JobsList* getJobsList();
     void executeCommand(const char *cmd_line);
+
+    std::string getLastCmdLine()const;
 
     // TODO: add extra methods as needed
 };

@@ -6,6 +6,7 @@
 #include <sys/wait.h>
 #include <iomanip>
 #include "Commands.h"
+#include <algorithm>
 
 using namespace std;
 
@@ -78,11 +79,16 @@ void _removeBackgroundSign(char *cmd_line) {
 SmallShell::SmallShell() {
       this->m_prompt = "smash";
       this->m_plastPwd = "";
+      this->m_lastCmdLine = "";
+      this->m_jobsList =new JobsList();
 }
 
 SmallShell::~SmallShell() {
 // TODO: add your implementation
+delete m_jobsList;
 }
+
+std::string SmallShell::getLastCmdLine()const {return this->m_lastCmdLine;}
 
 Command::~Command() {}
 
@@ -109,6 +115,13 @@ Command *SmallShell::CreateCommand(const char *cmd_line) {
   else if (firstWord.compare("cd") == 0) {
     return new ChangeDirCommand(cmd_line, get_last_dir());
   }
+  else if (firstWord.compare("jobs") == 0) {
+    return new JobsCommand(cmd_line, getJobsList());
+  }
+   else if (firstWord.compare("fg") == 0) {
+    return new ForegroundCommand(cmd_line, getJobsList());
+  }
+
   // else {
   //   return new ExternalCommand(cmd_line);
   // }
@@ -120,18 +133,22 @@ Command *SmallShell::CreateCommand(const char *cmd_line) {
 void SmallShell::executeCommand(const char *cmd_line) {
   
     // TODO: Add your implementation here
-    // for example:
+    this->m_lastCmdLine = cmd_line;
     Command* cmd = CreateCommand(cmd_line);
+
+  
     cmd->execute();
+
     // Please note that you must fork smash process for some commands (e.g., external commands....)
 }
+
 
 void BuiltInCommand::execute() {}                       // Maybe remove, if execute will be full
 
 std::string ChPromtCommand::mask_chprompt(const char *cmd_line) {
   std::string tmp_string;
-  tmp_string = string(cmd_line).substr(8);                                      // Take the "chprompt" out out of the left side of the string
-  tmp_string = _ltrim(tmp_string).length() ? _ltrim(tmp_string) : "smash";      // Take out the left spaces if exist, if embty take "smash"
+  tmp_string = string(cmd_line).substr(8);                                      // Take the "chprompt" out of the left side of the string
+  tmp_string = _ltrim(tmp_string).length() ? _ltrim(tmp_string) : "smash";      // Take out the left spaces if exist, if empty take "smash"
   return tmp_string.substr(0, tmp_string.find_first_of(" \n"));                 // Take the first word from the string
 }
 
@@ -211,3 +228,143 @@ char** SmallShell::get_last_dir() {
   return result;
 }
 
+
+JobsList* SmallShell::getJobsList(){return this->m_jobsList;}
+
+
+void JobsCommand::execute(){
+    m_jobs->printJobsList();
+}
+
+
+
+//_____________________ Jobs List implemintation _____________________ //
+
+JobsList::JobEntry::JobEntry(int newJobId, pid_t newJobPid, Command *cmd) : m_jobId(newJobId), m_pid(newJobPid), m_jobCmdLine(SmallShell::getInstance().getLastCmdLine()){}
+
+int JobsList::JobEntry::getJobId()const { return this->m_jobId;}
+
+pid_t JobsList::JobEntry::getPid()const {return this->m_pid;}
+
+std::string JobsList::JobEntry::getJobCmdLine()const{return this->m_jobCmdLine;}
+
+/*
+void JobsList::addJob(Command *cmd, bool isStopped){
+  this->removeFinishedJobs();
+  jobsVector.push_back(new JobEntry(this->maxJobId + 1 ,  , cmd))
+
+  //ADD HERE
+}
+
+*/
+
+void JobsList::printJobsList(){
+  this->removeFinishedJobs();
+  for (auto it = jobsVector.begin(); it != jobsVector.end(); it++){
+    std::cout << "[" << it->getJobId() << "]" << it->getJobCmdLine() << std::endl;
+  }
+  //ADD HERE
+}
+
+
+/*
+void JobsList::killAllJobs(){
+  //ADD HERE
+}
+*/
+
+
+//___remove all the finished jobs from the jobs list___//
+void JobsList::removeFinishedJobs(){
+   for (auto it = jobsVector.begin(); it != jobsVector.end(); ){
+    int status;
+    pid_t result = waitpid(it->getPid(), &status, WNOHANG);
+    
+    if(result == it->getPid()){
+      it = jobsVector.erase(it);
+    }
+    else{
+      ++it;
+    }
+   } 
+
+  //ADD HERE 
+}  
+
+
+
+
+JobsList::JobEntry* JobsList::getJobById(int jobId){
+  std::cout << "got here" << std::endl;
+  auto it = std::find_if(jobsVector.begin(), jobsVector.end(),[jobId](const JobEntry& job){return job.getJobId() == jobId;});
+  if(it != jobsVector.end()){
+    return &(*it);
+  }
+    return nullptr;
+}
+  //ADD HERE 
+
+
+
+/*
+void JobsList::removeJobById(int jobId) {
+  //ADD HERE
+}
+
+*/
+JobsList::JobEntry* JobsList::getLastJob() {
+  if(jobsVector.empty()){
+    return nullptr;
+  }
+  
+  return &jobsVector.back();
+}
+
+/*
+JobsList:: JobEntry *getLastStoppedJob(int *jobId) {
+  //ADD HERE
+}
+*/
+
+bool JobsList::empty()const {return jobsVector.empty();}
+
+ForegroundCommand::ForegroundCommand(const char *cmd_line, JobsList *jobs) : m_jobs(jobs), m_cmdLine(cmd_line) {}
+
+void ForegroundCommand::execute(){
+  if(m_jobs != nullptr){
+    this->m_jobs->removeFinishedJobs();
+
+    char* args[20]; 
+    int argc = _parseCommandLine(m_cmdLine, args);
+    if(argc == 1){;
+      if(m_jobs->empty()){
+        std::cout << "smash error: fg: jobs list is empty" << std::endl;
+      }
+      // ADD CODE FG WITH MAX ID JOB
+      else{
+        std::cout << m_jobs->getLastJob()->getPid() << m_jobs->getLastJob()->getPid() << std::endl;
+      }
+    }
+
+    else if(argc == 2){
+      int jobId = atoi(args[1]);
+      if(jobId){
+        JobsList::JobEntry* requastedJob = m_jobs->getJobById(jobId);
+        if( requastedJob != nullptr){
+          //ADD CODE FOR REGULAR FG WITH PID
+        }
+        else{
+          std::cout << "smash error: fg: job-id " << jobId << " does not exist" << std::endl;
+        }
+        
+      }
+      else{
+        std::cout << "smash error: fg: invalid arguments" << std::endl;
+      }
+    }
+
+    else{
+      std::cout << "smash error: fg: invalid arguments" << std::endl;
+    }
+  }
+}
