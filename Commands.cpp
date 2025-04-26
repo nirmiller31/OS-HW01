@@ -371,9 +371,13 @@ void ForegroundCommand::execute(){
 
 void ExternalCommand::execute(){
   char* args[20]; 
+  const char* firstWord = (string(m_cmdLine).substr(0, string(m_cmdLine).find_first_of(" \n"))).c_str();
   _parseCommandLine(m_cmdLine, args);
-  for(int i = 1 ; i<20 ; i++){
-    std::cout << "ExternalCommand" << args[i] << std::endl;
-  }
+  if (execvp(firstWord, args) == -1) {
+    perror("execvp failed");
+}
+  // for(int i = 0 ; i<20 ; i++){
+  //   std::cout << "ExternalCommand" << args[i] << std::endl;
+  // }
 }
  //let check it!!!
