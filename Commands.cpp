@@ -373,12 +373,19 @@ void ExternalCommand::execute(){
   char* args[20]; 
   const char* firstWord = (string(m_cmdLine).substr(0, string(m_cmdLine).find_first_of(" \n"))).c_str();
   _parseCommandLine(m_cmdLine, args);
-  if (execvp(firstWord, args) == -1) {
-    perror("execvp failed");
+
+  pid_t pid = fork();
+
+  if(pid == 0){                         // New child process
+    if (execvp(firstWord, args) == -1) {
+      perror("execvp failed");
+  }
+  }
+  else if(pid >0){                      // Parent process
+    wait(nullptr);
+  }
+  else{                                 // Failed fork
+    std::cout << "Fork failed!" << std::endl;
+    return;
+  }
 }
-  // for(int i = 0 ; i<20 ; i++){
-  //   std::cout << "ExternalCommand" << args[i] << std::endl;
-  // }
-}
- //let check it!!!
- //lets check 211212!!!
