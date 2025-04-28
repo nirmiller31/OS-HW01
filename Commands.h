@@ -193,7 +193,7 @@ public:
 
     ~JobsList() = default ;
 
-    void addJob(Command *cmd, bool isStopped = false);
+    void addJob(Command* cmd, bool isStopped = false);
 
     void printJobsList();
 
@@ -208,6 +208,8 @@ public:
     JobEntry *getLastJob();
 
     JobEntry *getLastStoppedJob(int *jobId);
+
+    void updateMaxJobID() {maxJobId++;}
 
     bool empty()const;
 

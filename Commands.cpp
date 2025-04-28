@@ -291,8 +291,6 @@ void ExternalCommand::execute(){
   pid_t pid = fork();                                           // Create a child process
 
   if(pid == 0){                                                 // New child process code
-    
-    SmallShell::getInstance().getJobsList()->addJob(this);
 
     if(_isSpecialExternalComamnd(shorterCmd)) {
 
@@ -309,6 +307,10 @@ void ExternalCommand::execute(){
     if(!background_command){
       wait(nullptr);
     }
+    else {
+      // JobsList::JobEntry* new_entry = new JobsList::JobEntry(1 , 1 , );
+      SmallShell::getInstance().getJobsList()->addJob(this);
+    }
   }
   else{                                                         // Failed fork, may not need to print, but know it is here TODO
     std::cout << "Fork failed!" << std::endl;
@@ -322,13 +324,15 @@ void ExternalCommand::execute(){
 JobsList* SmallShell::getJobsList(){return this->m_jobsList;}
 
 
-// void JobsCommand::execute(){
-//     m_jobs->printJobsList();
-// }
+void JobsCommand::execute(){
+    m_jobs->printJobsList();
+}
 
 //_____________________ Jobs List implemintation _____________________ //
 
-JobsList::JobEntry::JobEntry(int newJobId, pid_t newJobPid, Command *cmd) : m_jobId(newJobId), m_pid(newJobPid), m_jobCmdLine(SmallShell::getInstance().getLastCmdLine()){}
+JobsList::JobEntry::JobEntry(int newJobId, pid_t newJobPid, Command *cmd) : m_jobId(newJobId), m_pid(newJobPid), m_jobCmdLine(SmallShell::getInstance().getLastCmdLine()){
+
+}
 
 int JobsList::JobEntry::getJobId()const { return this->m_jobId;}
 
@@ -337,22 +341,23 @@ pid_t JobsList::JobEntry::getPid()const {return this->m_pid;}
 std::string JobsList::JobEntry::getJobCmdLine()const{return this->m_jobCmdLine;}
 
 
-void JobsList::addJob(Command *cmd, bool isStopped){
+void JobsList::addJob(Command* cmd, bool isStopped){
   // this->removeFinishedJobs();
-  jobsVector.push_back(new JobEntry(this->maxJobId + 1 , 1 , cmd));
-
+  JobEntry* new_entry = new JobEntry(this->maxJobId + 1 , 1 , cmd);
+  updateMaxJobID();
+  jobsVector.push_back(new_entry);
   //ADD HERE
 }
 
 
 
-// void JobsList::printJobsList(){
-//   this->removeFinishedJobs();
-//   for (auto it = jobsVector.begin(); it != jobsVector.end(); it++){
-//     std::cout << "[" << it->getJobId() << "]" << it->getJobCmdLine() << std::endl;
-//   }
-//   //ADD HERE
-// }
+void JobsList::printJobsList(){
+  // this->removeFinishedJobs();
+  for (auto it = jobsVector.begin(); it != jobsVector.end(); ++it) {
+    std::cout << "[" << (*it)->getJobId() << "] " << (*it)->getJobCmdLine() << std::endl;
+  }
+  //ADD HERE
+}
 
 
 /*
