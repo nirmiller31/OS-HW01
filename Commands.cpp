@@ -429,6 +429,7 @@ bool JobsList::empty()const {return jobsVector.empty();}
 ForegroundCommand::ForegroundCommand(const char *cmd_line, JobsList *jobs) : m_jobs(jobs), m_cmdLine(cmd_line) {}
 
 void ForegroundCommand::execute(){
+  int status;                                                                                                   // Status for waitpid usage
   if(m_jobs != nullptr){
     this->m_jobs->removeFinishedJobs();
 
@@ -439,19 +440,23 @@ void ForegroundCommand::execute(){
         std::cout << "smash error: fg: jobs list is empty" << std::endl;
       }
       else{
-        int status;                                                                                                 // Status for waitpid usage
-        pid_t result = waitpid(m_jobs->getLastJob()->getPid(), &status, WNOHANG);                                   // waitpid method
-        std::cout << m_jobs->getLastJob()->getJobCmdLine() << " " << m_jobs->getLastJob()->getPid() << std::endl;   // Print as declared in the PDF
-        while(result != m_jobs->getLastJob()->getPid()) {}                                                          // Stuch the process until child didn't end
+        JobsList::JobEntry* requastedJob = m_jobs->getLastJob();
+        if( requastedJob != nullptr){                                                         // TODO consider writing it only once, more compact less readable
+          pid_t result = waitpid(requastedJob->getPid(), &status, WNOHANG);                                                       // waitpid method
+          std::cout << requastedJob->getJobCmdLine() << " " << requastedJob->getPid() << std::endl;                               // Print as declared in the PDF
+          while(result != requastedJob->getPid()) {}                                                                              // Hold the process until child didn't end
+        }
       }
     }
 
-    else if(argc == 2){
+    else if(argc == 2){   //TODO consider using >2 instead of =
       int jobId = atoi(args[1]);
       if(jobId){
         JobsList::JobEntry* requastedJob = m_jobs->getJobById(jobId);
-        if( requastedJob != nullptr){
-          //ADD CODE FOR REGULAR FG WITH PID
+        if( requastedJob != nullptr){                                                                                              // Status for waitpid usage
+          pid_t result = waitpid(requastedJob->getPid(), &status, WNOHANG);                                           // waitpid method
+          std::cout << requastedJob->getJobCmdLine() << " " << requastedJob->getPid() << std::endl;                   // Print as declared in the PDF
+          while(result != requastedJob->getPid()) {}                                                                  // Hold the process until child didn't end
         }
         else{
           std::cout << "smash error: fg: job-id " << jobId << " does not exist" << std::endl;
