@@ -128,9 +128,9 @@ Command *SmallShell::CreateCommand(const char *cmd_line) {
   else if (firstWord.compare("jobs") == 0) {
     return new JobsCommand(cmd_line, getJobsList());
   }
-  //  else if (firstWord.compare("fg") == 0) {
-  //   return new ForegroundCommand(cmd_line, getJobsList());
-  // }
+   else if (firstWord.compare("fg") == 0) {
+    return new ForegroundCommand(cmd_line, getJobsList());
+  }
 
   else {
     return new ExternalCommand(cmd_line);
@@ -301,15 +301,16 @@ void ExternalCommand::execute(){
     }
     if (execvp(args[0], args) == -1) {                          // Search for the command in PATH env, with our arguments
       perror("execvp failed");
-  }
+    }
+    std::cout << "im a child and I ended the process" << std::endl;
   }
   else if(pid >0){                                              // Parent process code
     if(!background_command){
       wait(nullptr);
     }
     else {
-      // JobsList::JobEntry* new_entry = new JobsList::JobEntry(1 , 1 , );
-      SmallShell::getInstance().getJobsList()->addJob(this);
+      SmallShell::getInstance().getJobsList()->addJob(this, pid); // If parent process: add the child's process Entry to jobs vector
+      std::cout << "The pid created is" << pid << std::endl;
     }
   }
   else{                                                         // Failed fork, may not need to print, but know it is here TODO
@@ -341,9 +342,9 @@ pid_t JobsList::JobEntry::getPid()const {return this->m_pid;}
 std::string JobsList::JobEntry::getJobCmdLine()const{return this->m_jobCmdLine;}
 
 
-void JobsList::addJob(Command* cmd, bool isStopped){
-  // this->removeFinishedJobs();
-  JobEntry* new_entry = new JobEntry(this->maxJobId + 1 , 1 , cmd);
+void JobsList::addJob(Command* cmd, pid_t pid, bool isStopped){
+  this->removeFinishedJobs();
+  JobEntry* new_entry = new JobEntry(this->maxJobId + 1 , pid , cmd);
   updateMaxJobID();
   jobsVector.push_back(new_entry);
   //ADD HERE
@@ -352,7 +353,7 @@ void JobsList::addJob(Command* cmd, bool isStopped){
 
 
 void JobsList::printJobsList(){
-  // this->removeFinishedJobs();
+  this->removeFinishedJobs();
   for (auto it = jobsVector.begin(); it != jobsVector.end(); ++it) {
     std::cout << "[" << (*it)->getJobId() << "] " << (*it)->getJobCmdLine() << std::endl;
   }
@@ -368,33 +369,36 @@ void JobsList::killAllJobs(){
 
 
 //___remove all the finished jobs from the jobs list___//
-// void JobsList::removeFinishedJobs(){
-//    for (auto it = jobsVector.begin(); it != jobsVector.end(); ){
-//     int status;
-//     pid_t result = waitpid(it->getPid(), &status, WNOHANG);
-    
-//     if(result == it->getPid()){
-//       it = jobsVector.erase(it);
-//     }
-//     else{
-//       ++it;
-//     }
-//    } 
+void JobsList::removeFinishedJobs() {
+  for (auto it = jobsVector.begin(); it != jobsVector.end(); ) {
+      int status;
+      pid_t result = waitpid((*it)->getPid(), &status, WNOHANG);
 
-//   //ADD HERE 
-// }  
+      if (result == (*it)->getPid()) {
+          delete *it;  // Free the memory of the JobEntry object
+          it = jobsVector.erase(it); // Remove the pointer from the vector
+      } else {
+          ++it;
+      }
+  }
 
-
+  // You can add other cleanup code here if needed
+}
 
 
-// JobsList::JobEntry* JobsList::getJobById(int jobId){
-//   std::cout << "got here" << std::endl;
-//   auto it = std::find_if(jobsVector.begin(), jobsVector.end(),[jobId](const JobEntry& job){return job.getJobId() == jobId;});
-//   if(it != jobsVector.end()){
-//     return &(*it);
-//   }
-//     return nullptr;
-// }
+
+JobsList::JobEntry* JobsList::getJobById(int jobId) {
+  auto it = std::find_if(jobsVector.begin(), jobsVector.end(),
+      [jobId](const JobEntry* job) {
+          return job->getJobId() == jobId;
+      });
+
+  if (it != jobsVector.end()) {
+      return *it; // No need to take address
+  }
+  return nullptr;
+}
+
   //ADD HERE 
 
 
@@ -403,15 +407,16 @@ void JobsList::killAllJobs(){
 void JobsList::removeJobById(int jobId) {
   //ADD HERE
 }
-
 */
-// JobsList::JobEntry* JobsList::getLastJob() {
-//   if(jobsVector.empty()){
-//     return nullptr;
-//   }
+
+
+JobsList::JobEntry* JobsList::getLastJob() {
+  if(jobsVector.empty()){
+    return nullptr;
+  }
   
-//   return &jobsVector.back();
-// }
+  return jobsVector.back();
+}
 
 /*
 JobsList:: JobEntry *getLastStoppedJob(int *jobId) {
@@ -419,46 +424,48 @@ JobsList:: JobEntry *getLastStoppedJob(int *jobId) {
 }
 */
 
-// bool JobsList::empty()const {return jobsVector.empty();}
+bool JobsList::empty()const {return jobsVector.empty();}
 
-// ForegroundCommand::ForegroundCommand(const char *cmd_line, JobsList *jobs) : m_jobs(jobs), m_cmdLine(cmd_line) {}
+ForegroundCommand::ForegroundCommand(const char *cmd_line, JobsList *jobs) : m_jobs(jobs), m_cmdLine(cmd_line) {}
 
-// void ForegroundCommand::execute(){
-//   if(m_jobs != nullptr){
-//     this->m_jobs->removeFinishedJobs();
+void ForegroundCommand::execute(){
+  if(m_jobs != nullptr){
+    this->m_jobs->removeFinishedJobs();
 
-//     char* args[20]; 
-//     int argc = _parseCommandLine(m_cmdLine, args);
-//     if(argc == 1){;
-//       if(m_jobs->empty()){
-//         std::cout << "smash error: fg: jobs list is empty" << std::endl;
-//       }
-//       // ADD CODE FG WITH MAX ID JOB
-//       else{
-//         std::cout << m_jobs->getLastJob()->getPid() << m_jobs->getLastJob()->getPid() << std::endl;
-//       }
-//     }
+    char* args[20]; 
+    int argc = _parseCommandLine(m_cmdLine, args);
+    if(argc == 1){;
+      if(m_jobs->empty()){
+        std::cout << "smash error: fg: jobs list is empty" << std::endl;
+      }
+      else{
+        int status;                                                                                                 // Status for waitpid usage
+        pid_t result = waitpid(m_jobs->getLastJob()->getPid(), &status, WNOHANG);                                   // waitpid method
+        std::cout << m_jobs->getLastJob()->getJobCmdLine() << " " << m_jobs->getLastJob()->getPid() << std::endl;   // Print as declared in the PDF
+        while(result != m_jobs->getLastJob()->getPid()) {}                                                          // Stuch the process until child didn't end
+      }
+    }
 
-//     else if(argc == 2){
-//       int jobId = atoi(args[1]);
-//       if(jobId){
-//         JobsList::JobEntry* requastedJob = m_jobs->getJobById(jobId);
-//         if( requastedJob != nullptr){
-//           //ADD CODE FOR REGULAR FG WITH PID
-//         }
-//         else{
-//           std::cout << "smash error: fg: job-id " << jobId << " does not exist" << std::endl;
-//         }
+    else if(argc == 2){
+      int jobId = atoi(args[1]);
+      if(jobId){
+        JobsList::JobEntry* requastedJob = m_jobs->getJobById(jobId);
+        if( requastedJob != nullptr){
+          //ADD CODE FOR REGULAR FG WITH PID
+        }
+        else{
+          std::cout << "smash error: fg: job-id " << jobId << " does not exist" << std::endl;
+        }
         
-//       }
-//       else{
-//         std::cout << "smash error: fg: invalid arguments" << std::endl;
-//       }
-//     }
+      }
+      else{
+        std::cout << "smash error: fg: invalid arguments" << std::endl;
+      }
+    }
 
-//     else{
-//       std::cout << "smash error: fg: invalid arguments" << std::endl;
-//     }
-//   }
-// }
+    else{
+      std::cout << "smash error: fg: invalid arguments" << std::endl;
+    }
+  }
+}
 
