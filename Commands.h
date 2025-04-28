@@ -215,7 +215,7 @@ public:
     // TODO: Add extra methods or modify exisitng ones as needed
 
 private:
-    std::vector<JobEntry> jobsVector;
+    std::vector<JobEntry*> jobsVector;
     int maxJobId;
 
 };
