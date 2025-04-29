@@ -5,7 +5,7 @@
 #define SIGTERM 15
 #define SIGINT  2
 
-int kill(pid_t pid, int sig);
+int my_kill(pid_t pid, int sig);
 
 void ctrlCHandler(int sig_num);
 

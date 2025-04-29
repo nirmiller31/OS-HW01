@@ -165,6 +165,8 @@ public:
     virtual ~QuitCommand() {
     }
 
+    const char* take_second_arg(const char *cmd_line);
+
     void execute() override;
 
 private:

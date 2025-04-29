@@ -283,19 +283,42 @@ void ChangeDirCommand::execute() {
 // --------------------------------------------Quit Command methods section-----------------------------------------------------
 //------------------------------------------------------------------------------------------------------------------------------
 void QuitCommand::execute(){
+
+  pid_t main_pid = SmallShell::getInstance().get_pid();
   char* args[20]; 
   int argc = _parseCommandLine(m_cmdLine, args);
-  pid_t main_pid = SmallShell::getInstance().get_pid();
-  string kill_str = "kill";
-  if(args[1] == kill_str.c_str()){
+  if(argc == 1){
+    exit(0);
+  }
+  else if(string(args[1]) == "kill"){
     int num_jobs = SmallShell::getInstance().getJobsList()->countLiveJobs();
-    std::cout << "smash: sending SIGKILL signals to " << num_jobs << "jobs" << std::endl;
+    std::cout << "smash: sending SIGKILL signals to " << num_jobs << " jobs" << std::endl;
       m_jobs->printJobsListForKill();
+      m_jobs->killAllJobs();
   }
   else{
-    kill(main_pid, SIGKILL);
-    waitpid(main_pid, nullptr, 0);
+    // kill(main_pid, SIGKILL);
+    // waitpid(main_pid, nullptr, 0);
   }
+
+}
+
+const char* QuitCommand::take_second_arg(const char *cmd_line) {
+
+  const char* tmp_cmd_line;
+    
+    while (*cmd_line && std::isspace(*cmd_line)) ++cmd_line;                // Skip leading spaces
+    while (*cmd_line && !std::isspace(*cmd_line)) ++cmd_line;               // Skip the first word
+    while (*cmd_line && std::isspace(*cmd_line)) ++cmd_line;                // Skip spaces after the first word
+
+    tmp_cmd_line = cmd_line;
+//TODO verify that path is coherent!!!!!!!!!!
+    while (*tmp_cmd_line && !std::isspace(*tmp_cmd_line)) ++tmp_cmd_line;   // Skip the given path
+    while (*tmp_cmd_line && std::isspace(*tmp_cmd_line)) ++tmp_cmd_line;    // Skip the spaces after the path
+    if(*tmp_cmd_line) {                                                     // Check if something left after: [cd][spaces][<path>][spaces][---something?---]
+      std::cout << "smash error: cd: too many arguements" << std::endl;
+    }
+    return *cmd_line ? cmd_line : nullptr;
 }
 //------------------------------------------------------------------------------------------------------------------------------
 // ------------------------------------------------------End-of-section---------------------------------------------------------
@@ -328,7 +351,6 @@ void ExternalCommand::execute(){
     if (execvp(args[0], args) == -1) {                          // Search for the command in PATH env, with our arguments
       perror("execvp failed");
     }
-    std::cout << "im a child and I ended the process" << std::endl;
   }
   else if(pid >0){                                              // Parent process code
     if(!background_command){
@@ -336,7 +358,8 @@ void ExternalCommand::execute(){
     }
     else {
       SmallShell::getInstance().getJobsList()->addJob(this, pid); // If parent process: add the child's process Entry to jobs vector
-      std::cout << "The pid created is" << pid << std::endl;
+//-------------------------------------------------------------------TODO very important: make sure failed execv process wont get to vector!
+      // std::cout << "The pid created is" << pid << std::endl;
     }
   }
   else{                                                         // Failed fork, may not need to print, but know it is here TODO
@@ -409,8 +432,11 @@ void JobsList::printJobsListForKill(){
 void JobsList::killAllJobs(){
   this->removeFinishedJobs();
   for (auto it = jobsVector.begin(); it != jobsVector.end(); ++it) {
-    kill((*it)->getPid(), SIGKILL);
-    waitpid((*it)->getPid(), nullptr, 0);
+      if (*it == nullptr) continue; // skip null entries
+      
+      pid_t pid_to_kill = (*it)->getPid();
+      my_kill(pid_to_kill, SIGKILL);
+      // waitpid(pid_to_kill, nullptr, WHOHANG);    TODO consider to use because of zombies
   }
 }
 

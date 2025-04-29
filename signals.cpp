@@ -9,6 +9,6 @@ void ctrlCHandler(int sig_num) {
     // TODO: Add your implementation
 }
 
-int kill(pid_t pid, int sig) {
+int my_kill(pid_t pid, int sig) {
     return ::kill(pid, sig);
 }
