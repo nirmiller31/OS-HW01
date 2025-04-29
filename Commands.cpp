@@ -6,6 +6,7 @@
 #include <sys/wait.h>
 #include <iomanip>
 #include "Commands.h"
+#include "signals.h"
 #include <algorithm>
 
 using namespace std;
@@ -90,7 +91,8 @@ SmallShell::SmallShell() {
       this->m_prompt = "smash";
       this->m_plastPwd = "";
       this->m_lastCmdLine = "";
-      this->m_jobsList =new JobsList();
+      this->m_jobsList = new JobsList();
+      this->m_pid = getpid();
 }
 
 SmallShell::~SmallShell() {
@@ -130,6 +132,9 @@ Command *SmallShell::CreateCommand(const char *cmd_line) {
   }
    else if (firstWord.compare("fg") == 0) {
     return new ForegroundCommand(cmd_line, getJobsList());
+  }
+  else if (firstWord.compare("quit") == 0) {
+    return new QuitCommand(cmd_line, getJobsList());
   }
 
   else {
@@ -275,6 +280,27 @@ void ChangeDirCommand::execute() {
 // ------------------------------------------------------End-of-section---------------------------------------------------------
 //****************************************************************************************************************************//
 //****************************************************************************************************************************//
+// --------------------------------------------Quit Command methods section-----------------------------------------------------
+//------------------------------------------------------------------------------------------------------------------------------
+void QuitCommand::execute(){
+  char* args[20]; 
+  int argc = _parseCommandLine(m_cmdLine, args);
+  pid_t main_pid = SmallShell::getInstance().get_pid();
+  string kill_str = "kill";
+  if(args[1] == kill_str.c_str()){
+    int num_jobs = SmallShell::getInstance().getJobsList()->countLiveJobs();
+    std::cout << "smash: sending SIGKILL signals to " << num_jobs << "jobs" << std::endl;
+      m_jobs->printJobsListForKill();
+  }
+  else{
+    kill(main_pid, SIGKILL);
+    waitpid(main_pid, nullptr, 0);
+  }
+}
+//------------------------------------------------------------------------------------------------------------------------------
+// ------------------------------------------------------End-of-section---------------------------------------------------------
+//****************************************************************************************************************************//
+//****************************************************************************************************************************//
 // ------------------------------------------External Command methods section---------------------------------------------------
 //------------------------------------------------------------------------------------------------------------------------------
 void ExternalCommand::execute(){
@@ -335,7 +361,18 @@ JobsList::JobEntry::JobEntry(int newJobId, pid_t newJobPid, Command *cmd) : m_jo
 
 }
 
+int JobsList::JobsList::countLiveJobs(){
+  this->removeFinishedJobs();
+  int result = 0;
+  for (auto it = jobsVector.begin(); it != jobsVector.end(); ++it) {
+    if(*it) {result++;}
+  }
+  return result;
+}
+
 int JobsList::JobEntry::getJobId()const { return this->m_jobId;}
+
+pid_t JobsList::JobEntry::getJobPid()const { return this->m_pid;}
 
 pid_t JobsList::JobEntry::getPid()const {return this->m_pid;}
 
@@ -357,15 +394,26 @@ void JobsList::printJobsList(){
   for (auto it = jobsVector.begin(); it != jobsVector.end(); ++it) {
     std::cout << "[" << (*it)->getJobId() << "] " << (*it)->getJobCmdLine() << std::endl;
   }
-  //ADD HERE
+}
+
+void JobsList::printJobsListForKill(){
+  this->removeFinishedJobs();
+  for (auto it = jobsVector.begin(); it != jobsVector.end(); ++it) {
+    std::cout << (*it)->getJobPid() << ": " << (*it)->getJobCmdLine() << std::endl;
+  }
+  std::cout << "Linux-shell:" << std::endl;
 }
 
 
-/*
+
 void JobsList::killAllJobs(){
-  //ADD HERE
+  this->removeFinishedJobs();
+  for (auto it = jobsVector.begin(); it != jobsVector.end(); ++it) {
+    kill((*it)->getPid(), SIGKILL);
+    waitpid((*it)->getPid(), nullptr, 0);
+  }
 }
-*/
+
 
 
 //___remove all the finished jobs from the jobs list___//

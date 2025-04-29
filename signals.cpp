@@ -8,3 +8,7 @@ using namespace std;
 void ctrlCHandler(int sig_num) {
     // TODO: Add your implementation
 }
+
+int kill(pid_t pid, int sig) {
+    return ::kill(pid, sig);
+}

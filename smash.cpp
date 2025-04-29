@@ -19,7 +19,7 @@ int main(int argc, char *argv[]) {
         std::getline(std::cin, cmd_line);
         smash.executeCommand(cmd_line.c_str());
 
-        std::cout << smash.getLastCmdLine() << std::endl ; //for debugging -delete later
+        // std::cout << smash.getLastCmdLine() << std::endl ; //for debugging -delete later
     }
     return 0;
 }

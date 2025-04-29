@@ -156,12 +156,20 @@ class SmallShell;
 
 class QuitCommand : public BuiltInCommand {
     // TODO: Add your data members public:
-    QuitCommand(const char *cmd_line, JobsList *jobs);
+public:
+    QuitCommand(const char *cmd_line, JobsList *jobs) {
+        m_cmdLine = cmd_line;
+        m_jobs = jobs;
+    }
 
     virtual ~QuitCommand() {
     }
 
     void execute() override;
+
+private:
+    const char* m_cmdLine;
+    JobsList* m_jobs;
 };
 
 
@@ -175,6 +183,8 @@ public:
         ~JobEntry(){}
 
         int getJobId()const;
+
+        int getJobPid()const;
 
         pid_t getPid()const;
 
@@ -197,9 +207,13 @@ public:
 
     void printJobsList();
 
+    void printJobsListForKill();
+
     void killAllJobs();
 
     void removeFinishedJobs();
+
+    int countLiveJobs();
 
     JobEntry *getJobById(int jobId);
 
@@ -316,6 +330,7 @@ private:
     std::string m_prompt;
     std::string m_lastCmdLine;
     JobsList* m_jobsList;
+    pid_t m_pid;
 
 public:
     Command *CreateCommand(const char *cmd_line);
@@ -337,6 +352,7 @@ public:
     void set_last_dir(std::string plastPwd) {this->m_plastPwd = plastPwd;}
     JobsList* getJobsList();
     void executeCommand(const char *cmd_line);
+    pid_t get_pid() {return m_pid;}
 
     std::string getLastCmdLine()const;
 
