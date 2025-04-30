@@ -8,6 +8,7 @@
 #include "Commands.h"
 #include "signals.h"
 #include <algorithm>
+#include <regex>
 
 using namespace std;
 
@@ -110,10 +111,16 @@ BuiltInCommand::~BuiltInCommand() {}
 * Creates and returns a pointer to Command class which matches the given command line (cmd_line)
 */
 Command *SmallShell::CreateCommand(const char *cmd_line) {
-    // For example:
 
   string cmd_s = _trim(string(cmd_line));
   string firstWord = cmd_s.substr(0, cmd_s.find_first_of(" \n"));
+
+  if(SmallShell::getInstance().alias_exist(firstWord.c_str())){                     // Check a case of an alias
+    string alias_name = firstWord.c_str();                                          // If exist, than it is alias's name
+    cmd_line = SmallShell::getInstance().get_command_by_alias(alias_name).c_str();  // Extract the alias's command 
+    cmd_s = _trim(string(cmd_line));                                                // Repeat the same process for the alias
+    firstWord = cmd_s.substr(0, cmd_s.find_first_of(" \n"));
+  }
 
   if (firstWord.compare("chprompt") == 0) {
     return new ChPromtCommand(cmd_line);
@@ -138,6 +145,12 @@ Command *SmallShell::CreateCommand(const char *cmd_line) {
   }
   else if (firstWord.compare("kill") == 0) {
     return new KillCommand(cmd_line, getJobsList());
+  }
+  else if (firstWord.compare("alias") == 0) {
+    return new AliasCommand(cmd_line);
+  }
+  else if (firstWord.compare("unalias") == 0) {
+    return new UnAliasCommand(cmd_line);
   }
 
   else {
@@ -287,7 +300,7 @@ void ChangeDirCommand::execute() {
 //------------------------------------------------------------------------------------------------------------------------------
 void QuitCommand::execute(){
 
-  pid_t main_pid = SmallShell::getInstance().get_pid();
+  // pid_t main_pid = SmallShell::getInstance().get_pid();
   char* args[20]; 
   int argc = _parseCommandLine(m_cmdLine, args);
   if(argc == 1){
@@ -331,7 +344,7 @@ void KillCommand::execute(){
 
   SmallShell::getInstance().getJobsList()->removeFinishedJobs();
 
-  pid_t main_pid = SmallShell::getInstance().get_pid();
+  // pid_t main_pid = SmallShell::getInstance().get_pid();
   char* args[20]; 
   int argc = _parseCommandLine(m_cmdLine, args);
 
@@ -353,6 +366,64 @@ void KillCommand::execute(){
   else{
     std::cout << "smash error: kill: invalid arguements" << std::endl;
   }
+}
+//------------------------------------------------------------------------------------------------------------------------------
+// ------------------------------------------------------End-of-section---------------------------------------------------------
+//****************************************************************************************************************************//
+//****************************************************************************************************************************//
+// -------------------------------------------Alias Command methods section-----------------------------------------------------
+//------------------------------------------------------------------------------------------------------------------------------
+void AliasCommand::execute(){
+
+  char* args[20]; 
+  int argc = _parseCommandLine(m_cmdLine, args);
+  std::regex pattern(R"(^alias\s+([a-zA-Z0-9_]+)='([^']*)'$)");
+  std::cmatch match;
+
+  if(argc == 1) {
+    SmallShell::getInstance().print_alias();
+  }
+  else if (std::regex_match(m_cmdLine, match, pattern)) {
+
+      std::string aliasStr = match[1];
+      std::string commandStr = match[2];
+
+      if(!SmallShell::getInstance().alias_is_reserved(aliasStr.c_str()) && !SmallShell::getInstance().alias_exist(aliasStr.c_str())){
+        SmallShell::getInstance().add_alias(new SmallShell::Alias(aliasStr, commandStr));
+      }
+      else{
+        std::cout << "smash error: alias: " << aliasStr << " already exists or is a reserved command" << std::endl;
+      }
+
+  } else {
+      std::cout << "Invalid format.\n";
+  }
+}
+//------------------------------------------------------------------------------------------------------------------------------
+// ------------------------------------------------------End-of-section---------------------------------------------------------
+//****************************************************************************************************************************//
+//****************************************************************************************************************************//
+// ------------------------------------------Unalias Command methods section----------------------------------------------------
+//------------------------------------------------------------------------------------------------------------------------------
+void UnAliasCommand::execute(){
+
+  char* args[20]; 
+  int argc = _parseCommandLine(m_cmdLine, args);
+  if(argc == 1){
+    std::cout << "smash error: unalias: not enough arguements" << std::endl;
+  }
+  else{
+    for(int i = 1 ; i<argc ; i++){
+      if(SmallShell::getInstance().alias_exist(args[i])){
+        std::cout << "Im deleting:" << args[i] << std::endl;
+        SmallShell::getInstance().delete_alias_by_name(args[i]);
+      }
+      else{
+        std::cout << "smash error: unalias: " << args[i] << "alias does not exist" << std::endl;
+      }
+    }
+  }
+  std::cout << "Im done" << std::endl;
 }
 //------------------------------------------------------------------------------------------------------------------------------
 // ------------------------------------------------------End-of-section---------------------------------------------------------
@@ -405,8 +476,64 @@ void ExternalCommand::execute(){
 // ------------------------------------------------------End-of-section---------------------------------------------------------
 //****************************************************************************************************************************//
 
-JobsList* SmallShell::getJobsList(){return this->m_jobsList;}
 
+bool SmallShell::alias_exist(const char* alias_name){
+  for (auto it = m_aliasList.begin(); it != m_aliasList.end(); ++it) {
+    if((*it) != nullptr) {
+      if(string(alias_name) == ((*it)->get_name())){
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+void SmallShell::print_alias(){
+  for (auto it = m_aliasList.begin(); it != m_aliasList.end(); ++it) {
+    if((*it != nullptr)){
+      std::cout << (*it)->get_name().c_str() << "='" << (*it)->get_command().c_str() << "'" << std::endl;       // Print in the desired format
+    }
+  }
+}
+
+bool SmallShell::alias_is_reserved(const char* alias_name){
+  std::string cmd = "command -v " + string(alias_name) + " > /dev/null 2>&1";
+  int result = std::system(cmd.c_str());
+  return bool(result == 0);
+}
+
+string SmallShell::get_command_by_alias(std::string alias_name){
+  string result;
+  for (auto it = m_aliasList.begin(); it != m_aliasList.end(); ++it) {
+    if((*it) != nullptr) {
+      if(alias_name == ((*it)->get_name())){
+        result = (*it)->get_command();
+      }
+    }
+  }
+  return result;
+}
+
+void SmallShell::delete_alias_by_name(std::string alias_name){
+  std::vector<Alias*>* TMP_aliasList = new std::vector<Alias*>;
+  for (auto it = m_aliasList.begin(); it != m_aliasList.end(); ++it) {
+
+    std::cout << (*it)->get_name().c_str() << "im deleting" << (*it)->get_command().c_str() << "'" << std::endl;
+
+    if((*it) != nullptr){
+      if(alias_name == (*it)->get_name()){                    // If should be deleted
+        delete *it;                                           // Delete memory contant
+        it = m_aliasList.erase(it);                           // Remove from vector
+      }
+      else{                                                   // If shouldn't be deleted
+        (*TMP_aliasList).push_back(*it);
+      }
+    }
+  }
+  set_new_alias_list(TMP_aliasList);                          // Clean the deleted and make the list more compact
+}
+
+JobsList* SmallShell::getJobsList(){return this->m_jobsList;}
 
 void JobsCommand::execute(){
     m_jobs->printJobsList();
@@ -415,6 +542,10 @@ void JobsCommand::execute(){
 //_____________________ Jobs List implemintation _____________________ //
 
 JobsList::JobEntry::JobEntry(int newJobId, pid_t newJobPid, Command *cmd) : m_jobId(newJobId), m_pid(newJobPid), m_jobCmdLine(SmallShell::getInstance().getLastCmdLine()){
+
+}
+
+SmallShell::Alias::Alias(string new_alias_name, string new_alias_cmd) : m_aliasName(new_alias_name), m_aliasCommand(new_alias_cmd){
 
 }
 
@@ -441,7 +572,6 @@ void JobsList::addJob(Command* cmd, pid_t pid, bool isStopped){
   JobEntry* new_entry = new JobEntry(this->maxJobId + 1 , pid , cmd);
   updateMaxJobID();
   jobsVector.push_back(new_entry);
-  //ADD HERE
 }
 
 

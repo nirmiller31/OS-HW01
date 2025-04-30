@@ -224,8 +224,10 @@ private:
 };
 
 class AliasCommand : public BuiltInCommand {
+private:
+    const char* m_cmdLine;
 public:
-    AliasCommand(const char *cmd_line);
+    AliasCommand(const char *cmd_line) {m_cmdLine = cmd_line;}
 
     virtual ~AliasCommand() {
     }
@@ -234,8 +236,10 @@ public:
 };
 
 class UnAliasCommand : public BuiltInCommand {
+private:
+    const char* m_cmdLine;
 public:
-    UnAliasCommand(const char *cmd_line);
+    UnAliasCommand(const char *cmd_line) {m_cmdLine = cmd_line;};
 
     virtual ~UnAliasCommand() {
     }
@@ -326,18 +330,6 @@ class JobsList {
 };
 
 class SmallShell {
-private:
-    // char** m_plastPwd;
-    // std::string m_plastPwd;                                     // TODO check that std::string is fine (they gave char**)
-    
-    SmallShell();
-
-    std::string m_plastPwd;
-    std::string m_prompt;
-    std::string m_lastCmdLine;
-    JobsList* m_jobsList;
-    pid_t m_pid;
-
 public:
     Command *CreateCommand(const char *cmd_line);
 
@@ -352,6 +344,17 @@ public:
 
     ~SmallShell();
 
+    class Alias {
+        private:
+            std::string m_aliasName;
+            std::string m_aliasCommand;
+        public:
+            Alias(std::string new_alias_name, std::string new_alias_cmd);
+            ~Alias(){}
+            std::string get_name() {return m_aliasName;}
+            std::string get_command() {return m_aliasCommand;}
+        };
+
     std::string get_prompt() {return this->m_prompt;}
     void set_prompt(std::string new_prompt) {this->m_prompt = new_prompt;}
     char** get_last_dir();
@@ -359,8 +362,28 @@ public:
     JobsList* getJobsList();
     void executeCommand(const char *cmd_line);
     pid_t get_pid() {return m_pid;}
-
     std::string getLastCmdLine()const;
+
+    //---------------------------Alias Used----------------------------
+    void add_alias(Alias* new_alias) {m_aliasList.push_back(new_alias);}
+    bool alias_exist (const char* alias_name);
+    bool alias_is_reserved(const char* alias_name);
+    std::string get_command_by_alias(std::string alias_name);
+    void delete_alias_by_name(std::string alias_name);
+    void set_new_alias_list(std::vector<Alias*>* new_aliasList) {m_aliasList = *new_aliasList;}
+    void print_alias();
+    //-----------------------------------------------------------------
+
+    private:
+  
+    SmallShell();
+
+    std::string m_plastPwd;
+    std::string m_prompt;
+    std::string m_lastCmdLine;
+    JobsList* m_jobsList;
+    pid_t m_pid;
+    std::vector<Alias*> m_aliasList;
 
     // TODO: add extra methods as needed
 };
