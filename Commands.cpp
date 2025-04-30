@@ -311,6 +311,7 @@ void QuitCommand::execute(){
     std::cout << "smash: sending SIGKILL signals to " << num_jobs << " jobs" << std::endl;
       m_jobs->printJobsListForKill();
       m_jobs->killAllJobs();
+      exit(0);
   }
   else{
     // handle this senario (?) TODO
@@ -362,7 +363,7 @@ void KillCommand::execute(){
       SmallShell::getInstance().getJobsList()->removeJobById(jobId);
     }
     else {
-      std::cout << "smash error: kill: job-id " << jobId << "does not exist" << std::endl;
+      std::cout << "smash error: kill: job-id " << jobId << " does not exist" << std::endl;
     }
   }
   else{
@@ -417,7 +418,6 @@ void UnAliasCommand::execute(){
   else{
     for(int i = 1 ; i<argc ; i++){
       if(SmallShell::getInstance().alias_exist(args[i])){
-        std::cout << "Im deleting:" << args[i] << std::endl;
         SmallShell::getInstance().delete_alias_by_name(args[i]);
       }
       else{
@@ -425,7 +425,6 @@ void UnAliasCommand::execute(){
       }
     }
   }
-  std::cout << "Im done" << std::endl;
 }
 //------------------------------------------------------------------------------------------------------------------------------
 // ------------------------------------------------------End-of-section---------------------------------------------------------
@@ -517,22 +516,20 @@ string SmallShell::get_command_by_alias(std::string alias_name){
 }
 
 void SmallShell::delete_alias_by_name(std::string alias_name){
-  std::vector<Alias*>* TMP_aliasList = new std::vector<Alias*>;
-  for (auto it = m_aliasList.begin(); it != m_aliasList.end(); ++it) {
-
-    std::cout << (*it)->get_name().c_str() << "im deleting" << (*it)->get_command().c_str() << "'" << std::endl;
+  // std::vector<Alias*>* TMP_aliasList = new std::vector<Alias*>;
+  for (auto it = m_aliasList.begin(); it != m_aliasList.end(); it++) {
 
     if((*it) != nullptr){
       if(alias_name == (*it)->get_name()){                    // If should be deleted
-        delete *it;                                           // Delete memory contant
+        // delete *it;                                           // Delete memory contant
         it = m_aliasList.erase(it);                           // Remove from vector
       }
       else{                                                   // If shouldn't be deleted
-        (*TMP_aliasList).push_back(*it);
+        // (*TMP_aliasList).push_back(*it);
       }
     }
   }
-  set_new_alias_list(TMP_aliasList);                          // Clean the deleted and make the list more compact
+  // set_new_alias_list(TMP_aliasList);                          // Clean the deleted and make the list more compact
 }
 
 JobsList* SmallShell::getJobsList(){return this->m_jobsList;}
@@ -597,12 +594,13 @@ void JobsList::printJobsListForKill(){
 
 void JobsList::killAllJobs(){
   this->removeFinishedJobs();
+  int status;
   for (auto it = jobsVector.begin(); it != jobsVector.end(); ++it) {
       if (*it == nullptr) continue; // skip null entries
       
       pid_t pid_to_kill = (*it)->getPid();
       my_kill(pid_to_kill, SIGKILL);
-      // waitpid(pid_to_kill, nullptr, WHOHANG);    TODO consider to use because of zombies
+      waitpid(pid_to_kill, nullptr, WNOHANG);   // TODO consider to use because of zombies
   }
 }
 
@@ -646,10 +644,13 @@ JobsList::JobEntry* JobsList::getJobById(int jobId) {
 
 void JobsList::removeJobById(int jobId) {
   pid_t pid_to_kill = SmallShell::getInstance().getJobsList()->getJobById(jobId)->getPid();
-  if(my_kill(pid_to_kill, SIGKILL) < 0){
+  int status;
+  if(my_kill(pid_to_kill, SIGKILL) < 0){                                        
     //handle with error with system call TODO
+    std::cout << "kill failed" << std::endl;
   }
-  SmallShell::getInstance().getJobsList()->removeFinishedJobs();
+  waitpid(pid_to_kill, &status, WNOHANG);                                         // TODO need not to eait to children
+  // SmallShell::getInstance().getJobsList()->removeFinishedJobs();
 }
 
 
