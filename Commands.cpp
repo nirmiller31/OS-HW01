@@ -357,11 +357,13 @@ void KillCommand::execute(){
     jobId = atoi(args[2]);
     job_entry = SmallShell::getInstance().getJobsList()->getJobById(jobId);
 
-    if(job_entry == nullptr){                                               // Check that a job with this ID exist
+    if(job_entry != nullptr){                                               // Check that a job with this ID exist
+      std::cout << "signal number " << jobIsignal_num << " was sent to pid " << job_entry->getPid() << std::endl;
+      SmallShell::getInstance().getJobsList()->removeJobById(jobId);
+    }
+    else {
       std::cout << "smash error: kill: job-id " << jobId << "does not exist" << std::endl;
     }
-    std::cout << "signal number " << jobIsignal_num << " was sent to pid " << job_entry->getPid() << std::endl;
-    SmallShell::getInstance().getJobsList()->removeJobById(jobId);
   }
   else{
     std::cout << "smash error: kill: invalid arguements" << std::endl;
