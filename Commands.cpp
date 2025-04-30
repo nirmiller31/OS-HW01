@@ -136,6 +136,9 @@ Command *SmallShell::CreateCommand(const char *cmd_line) {
   else if (firstWord.compare("quit") == 0) {
     return new QuitCommand(cmd_line, getJobsList());
   }
+  else if (firstWord.compare("kill") == 0) {
+    return new KillCommand(cmd_line, getJobsList());
+  }
 
   else {
     return new ExternalCommand(cmd_line);
@@ -297,10 +300,8 @@ void QuitCommand::execute(){
       m_jobs->killAllJobs();
   }
   else{
-    // kill(main_pid, SIGKILL);
-    // waitpid(main_pid, nullptr, 0);
+    // handle this senario (?) TODO
   }
-
 }
 
 const char* QuitCommand::take_second_arg(const char *cmd_line) {
@@ -319,6 +320,39 @@ const char* QuitCommand::take_second_arg(const char *cmd_line) {
       std::cout << "smash error: cd: too many arguements" << std::endl;
     }
     return *cmd_line ? cmd_line : nullptr;
+}
+//------------------------------------------------------------------------------------------------------------------------------
+// ------------------------------------------------------End-of-section---------------------------------------------------------
+//****************************************************************************************************************************//
+//****************************************************************************************************************************//
+// --------------------------------------------Kill Command methods section-----------------------------------------------------
+//------------------------------------------------------------------------------------------------------------------------------
+void KillCommand::execute(){
+
+  SmallShell::getInstance().getJobsList()->removeFinishedJobs();
+
+  pid_t main_pid = SmallShell::getInstance().get_pid();
+  char* args[20]; 
+  int argc = _parseCommandLine(m_cmdLine, args);
+
+  int jobIsignal_num, jobId;
+  JobsList::JobEntry* job_entry;
+
+  jobIsignal_num = atoi(args[1]);
+  if((argc == 3) && jobIsignal_num < 0){                                    // Verify correct number of arguments, and exsitance of '-' before the signal
+    jobIsignal_num = abs(jobIsignal_num);
+    jobId = atoi(args[2]);
+    job_entry = SmallShell::getInstance().getJobsList()->getJobById(jobId);
+
+    if(job_entry == nullptr){                                               // Check that a job with this ID exist
+      std::cout << "smash error: kill: job-id " << jobId << "does not exist" << std::endl;
+    }
+    std::cout << "signal number " << jobIsignal_num << " was sent to pid " << job_entry->getPid() << std::endl;
+    SmallShell::getInstance().getJobsList()->removeJobById(jobId);
+  }
+  else{
+    std::cout << "smash error: kill: invalid arguements" << std::endl;
+  }
 }
 //------------------------------------------------------------------------------------------------------------------------------
 // ------------------------------------------------------End-of-section---------------------------------------------------------
@@ -358,7 +392,7 @@ void ExternalCommand::execute(){
     }
     else {
       SmallShell::getInstance().getJobsList()->addJob(this, pid); // If parent process: add the child's process Entry to jobs vector
-//-------------------------------------------------------------------TODO very important: make sure failed execv process wont get to vector!
+//&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&TODO very important: make sure failed execv process wont get to vector!
       // std::cout << "The pid created is" << pid << std::endl;
     }
   }
@@ -477,11 +511,15 @@ JobsList::JobEntry* JobsList::getJobById(int jobId) {
 
 
 
-/*
+
 void JobsList::removeJobById(int jobId) {
-  //ADD HERE
+  pid_t pid_to_kill = SmallShell::getInstance().getJobsList()->getJobById(jobId)->getPid();
+  if(my_kill(pid_to_kill, SIGKILL) < 0){
+    //handle with error with system call TODO
+  }
+  SmallShell::getInstance().getJobsList()->removeFinishedJobs();
 }
-*/
+
 
 
 JobsList::JobEntry* JobsList::getLastJob() {

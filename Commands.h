@@ -174,70 +174,6 @@ private:
     JobsList* m_jobs;
 };
 
-
-class JobsList {
-
-public:
-    class JobEntry {
-    public:
-        JobEntry(int newJobId, pid_t newJobPid, Command *cmd);
-
-        ~JobEntry(){}
-
-        int getJobId()const;
-
-        int getJobPid()const;
-
-        pid_t getPid()const;
-
-        std::string getJobCmdLine()const;
-
-    private: 
-        int m_jobId;
-        pid_t m_pid;
-        std::string m_jobCmdLine;
-    };
-
-
-
-public:
-    JobsList() = default;
-
-    ~JobsList() = default ;
-
-    void addJob(Command* cmd, pid_t pid , bool isStopped = false);
-
-    void printJobsList();
-
-    void printJobsListForKill();
-
-    void killAllJobs();
-
-    void removeFinishedJobs();
-
-    int countLiveJobs();
-
-    JobEntry *getJobById(int jobId);
-
-    void removeJobById(int jobId);
-
-    JobEntry *getLastJob();
-
-    JobEntry *getLastStoppedJob(int *jobId);
-
-    void updateMaxJobID() {maxJobId++;}
-
-    bool empty()const;
-
-
-    // TODO: Add extra methods or modify exisitng ones as needed
-
-private:
-    std::vector<JobEntry*> jobsVector;
-    int maxJobId;
-
-};
-
 class JobsCommand : public BuiltInCommand {
    
 public:
@@ -248,7 +184,6 @@ public:
 
     void execute() override;
 
-
 private:
     JobsList* m_jobs;
 
@@ -257,12 +192,19 @@ private:
 class KillCommand : public BuiltInCommand {
     // TODO: Add your data members
 public:
-    KillCommand(const char *cmd_line, JobsList *jobs);
+    KillCommand(const char *cmd_line, JobsList *jobs){
+        m_cmdLine = cmd_line;
+        m_jobs = jobs;
+    }
 
     virtual ~KillCommand() {
     }
 
     void execute() override;
+
+private:
+    const char* m_cmdLine;
+    JobsList* m_jobs;
 };
 
 class ForegroundCommand : public BuiltInCommand {
@@ -319,6 +261,68 @@ public:
     }
 
     void execute() override;
+};
+
+class JobsList {
+
+    public:
+        class JobEntry {
+        public:
+            JobEntry(int newJobId, pid_t newJobPid, Command *cmd);
+    
+            ~JobEntry(){}
+    
+            int getJobId()const;
+    
+            int getJobPid()const;
+    
+            pid_t getPid()const;
+    
+            std::string getJobCmdLine()const;
+    
+        private: 
+            int m_jobId;
+            pid_t m_pid;
+            std::string m_jobCmdLine;
+        };
+    
+    
+    
+    public:
+        JobsList() = default;
+    
+        ~JobsList() = default ;
+    
+        void addJob(Command* cmd, pid_t pid , bool isStopped = false);
+    
+        void printJobsList();
+    
+        void printJobsListForKill();
+    
+        void killAllJobs();
+    
+        void removeFinishedJobs();
+    
+        int countLiveJobs();
+    
+        JobEntry *getJobById(int jobId);
+    
+        void removeJobById(int jobId);
+    
+        JobEntry *getLastJob();
+    
+        JobEntry *getLastStoppedJob(int *jobId);
+    
+        void updateMaxJobID() {maxJobId++;}
+    
+        bool empty()const;
+    
+        // TODO: Add extra methods or modify exisitng ones as needed
+    
+    private:
+        std::vector<JobEntry*> jobsVector;
+        int maxJobId;
+    
 };
 
 class SmallShell {
