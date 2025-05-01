@@ -8,7 +8,7 @@
 #include "Commands.h"
 #include "signals.h"
 #include <algorithm>
-#include <fstream>
+#include <fcntl.h>
 #include <regex>
 
 using namespace std;
@@ -462,9 +462,28 @@ void UnSetEnvCommand::execute(){
 }
 
 bool UnSetEnvCommand::is_environment_variable(const char* varName) {
-  const char* value = std::getenv(varName);
-  std::cout << "unsetenv: value is " << value << std::endl;
-  return value != nullptr;
+
+  std::string path_to_check = "/proc/" + to_string(getpid()) + "/environ";
+  int fd = open(path_to_check.c_str(), O_RDONLY);
+  if (fd == -1) {
+      perror("open");
+      return;
+  }
+
+  const size_t bufferSize = 8192;                                       // 8 KB buffer
+  char buffer[bufferSize];
+  ssize_t bytesRead = read(fd, buffer, bufferSize);
+  close(fd);
+
+  string current_check = "";
+  for(int i = 0 ; i<bytesRead ; i++){
+    if(buffer[i] != '\0'){
+      current_check += buffer[i];
+    }
+    else{
+      std::cout << "Im checking: " << current_check << std::endl;
+    }
+  }
 }
 //------------------------------------------------------------------------------------------------------------------------------
 // ------------------------------------------------------End-of-section---------------------------------------------------------
