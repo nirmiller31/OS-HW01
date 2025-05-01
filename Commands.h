@@ -271,6 +271,11 @@ public:
     }
 
     void execute() override;
+
+    unsigned long long getProcCpuTime(pid_t pid);
+    unsigned long long getTotalCpuTime();
+    unsigned long long getCpuUsage(pid_t pid);
+    std::string getMemUsage(pid_t pid);
 };
 
 class JobsList {

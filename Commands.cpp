@@ -55,6 +55,7 @@ int _parseCommandLine(const char *cmd_line, char **args) {
     FUNC_EXIT()
 }
 
+
 bool _isBackgroundComamnd(const char *cmd_line) {
     const string str(cmd_line);
     return str[str.find_last_not_of(WHITESPACE)] == '&';
@@ -521,6 +522,182 @@ bool UnSetEnvCommand::is_environment_variable(const char* varName) {
 //****************************************************************************************************************************//
 // ---------------------------------------Watch Procces Command methods section-------------------------------------------------
 //------------------------------------------------------------------------------------------------------------------------------
+
+unsigned long long WatchProcCommand::getProcCpuTime(pid_t pid){ //!!!!!!check if return 0 is not an available value and if it is change the error return
+  std::string stat_path = "/proc/" + to_string(pid) + "/stat";
+  int fd = open(stat_path.c_str(), O_RDONLY );
+  if(fd == -1){
+    perror("open"); //check this might need to change it
+    return 0;
+  }
+
+  char buffer[1024]; //check if enough
+  ssize_t bytesRead = read(fd, buffer, sizeof(buffer) - 1);
+  close(fd);
+  if (bytesRead <=0){
+    perror("read"); //check this might need to change it
+    return 0;
+  }
+
+  int i = 0;
+  while((i < bytesRead) && (buffer[i] != ')')){
+    i++;
+  }
+  if (i == bytesRead){
+    return 0;
+  }
+
+  i += 2;
+  int stat_field_number = 3;
+  while(i < bytesRead && stat_field_number < 14){
+    if (buffer[i] == ' '){
+      stat_field_number++;
+    }
+    i++;
+  }
+
+  unsigned long long utime = 0;
+  while (i < bytesRead && buffer[i] >= '0' && buffer[i] <= '9'){
+    utime = (utime * 10) + (buffer[i] - '0'); //shifiting utime and adding the current digit (after converting char to int) - adding digit by digit form left to right 
+    i++;
+  }
+
+  while (i < bytesRead && buffer[i] == ' '){
+    i++;
+  }
+  
+  unsigned long long stime = 0;
+  while (i < bytesRead && buffer[i] >= '0' && buffer[i] <= '9'){
+    stime = (stime * 10) + (buffer[i] - '0'); //shifiting utime and adding the current digit (after converting char to int) - adding digit by digit form left to right 
+    i++;
+  }
+  
+  return (stime + utime); //return the process with the given pid kernel mode time and user mode time 
+
+};
+
+unsigned long long WatchProcCommand::getTotalCpuTime(){
+  int fd = open("/proc/stat", O_RDONLY );
+  if(fd == -1){
+    perror("open"); //check this might need to change it
+    return 0;
+  }
+
+  char buffer[1024]; //check if enough
+  ssize_t bytesRead = read(fd, buffer, sizeof(buffer) - 1);
+  close(fd);
+  if (bytesRead <=0){
+    perror("read"); //check this might need to change it
+    return 0;
+  }
+  buffer[bytesRead] = '\0';
+  const char* target_word = "cpu";
+  static const int target_len = 3;
+  int i = 0;
+
+  while((i < bytesRead) && (strncmp(&buffer[i], target_word, target_len) != 0)){ 
+    i++;
+  }
+  if (i == bytesRead){
+    return 0;
+  }
+
+  while(buffer[i] < '0' || buffer[i] < '9'){
+    i++; //skip the 'cpu' lable 
+  }
+   
+  
+  unsigned long long total_cpu_time = 0;
+  unsigned long long curr_field_time = 0;
+  int curr_field_number = 0;
+
+  while(i < bytesRead && curr_field_number < 10){
+    while(buffer[i] >= '0' && buffer[i] <= '9'){
+      if (i >= bytesRead){
+        return 0; //might need to change
+      }
+      curr_field_time = (curr_field_time * 10) + (buffer[i] - '0');
+      i++;
+    }
+    total_cpu_time += curr_field_time;
+    curr_field_time = 0;
+    curr_field_number++;
+
+    while (i < bytesRead && buffer[i] == ' '){
+    i++;
+    } 
+  }
+  return total_cpu_time;
+};
+
+
+
+unsigned long long WatchProcCommand::getCpuUsage(pid_t pid){
+
+  unsigned long long process_time1 = getProcCpuTime(pid);
+  unsigned long long total_time1 = getTotalCpuTime();
+
+  sleep(1);
+
+  unsigned long long process_time2 = getProcCpuTime(pid);
+  unsigned long long total_time2 = getTotalCpuTime();
+  
+  unsigned long long delta_process = process_time2 - process_time1;
+  unsigned long long delta_total = total_time2 -total_time1;
+  
+  if (delta_total == 0){
+    return 0;
+  }
+  return ((double)( delta_process/delta_total) * 100.0);
+};
+
+
+
+std::string WatchProcCommand::getMemUsage(pid_t pid){
+  std::string status_path = "/proc/" + to_string(pid) + "/status";
+    int fd = open(status_path.c_str(), O_RDONLY );
+    if(fd == -1){
+      perror("open"); //check this might need to change it
+      return "";
+    }
+
+    char buffer[4048]; //check if enough
+    ssize_t bytesRead = read(fd, buffer, sizeof(buffer) - 1);
+    close(fd);
+    if (bytesRead <=0){
+      perror("read"); //check this might need to change it
+      return "";
+    }
+  buffer[bytesRead] = '\0';
+  const char* target_line = "VmRSS:";
+  size_t target_line_len = 6;
+  size_t i = 0;
+  while(i < (size_t)bytesRead){
+    if(strncmp(&buffer[i], target_line, target_line_len) == 0){
+      i += target_line_len;
+      while(i < (size_t)bytesRead && buffer[i] == ' '){
+        i++;
+      }
+      size_t start_index = i;
+
+      while(i < (size_t)bytesRead && buffer[i] != '\n'){
+        i++;
+      }
+      if (i == (size_t)bytesRead){
+        return "";
+      }
+      return std::string(&buffer[start_index],  i - start_index);
+    }
+    i++;
+  }
+  return "";
+
+};
+
+
+
+
+
 void WatchProcCommand::execute(){
 
   char* args[21]; 
@@ -531,7 +708,9 @@ void WatchProcCommand::execute(){
   else{
     pid_t pid_to_print = atoi(args[1]);
     if(my_kill(pid_to_print, 0) == 0){                  // Process exist, and we have permission
-      // TODO
+
+      std::cout << "PID: " << pid_to_print << " | CPU Usage: " << getCpuUsage(pid_to_print) << "%" <<" | Memory Usage: " << getMemUsage(pid_to_print) << std::endl;
+
     }
     else{
       std::cout << "smash error: watchproc: pid " << pid_to_print << " does not exist" << std::endl;
