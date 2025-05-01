@@ -314,7 +314,7 @@ void QuitCommand::execute(){
     exit(0);
   }
   else if(string(args[1]) == "kill"){
-    int num_jobs = SmallShell::getInstance().getJobsList()->countLiveJobs();
+    int num_jobs = SmallShell::getInstance().getJobsList()->countLiveJobs();                // Verify if 0 jobs so it prints 0
     std::cout << "smash: sending SIGKILL signals to " << num_jobs << " jobs" << std::endl;
       m_jobs->printJobsListForKill();
       m_jobs->killAllJobs();
@@ -480,16 +480,7 @@ void WatchProcCommand::execute(){
   else{
     pid_t pid_to_print = atoi(args[1]);
     if(my_kill(pid_to_print, 0) == 0){                  // Process exist, and we have permission
-      std::string path = "/proc/" + std::to_string(pid_to_print) + "/status";
-      std::ifstream statusFile(path);
-      if (!statusFile.is_open()) {
-          std::cerr << "Error: Cannot open " << path << " — process may not exist.\n";
-          return;
-      }
-      std::string line;
-      while (std::getline(statusFile, line)) {
-          std::cout << line << std::endl;
-      }
+      // TODO
     }
     else{
       std::cout << "smash error: watchproc: pid " << pid_to_print << " does not exist" << std::endl;
@@ -670,7 +661,7 @@ void JobsList::killAllJobs(){
       
       pid_t pid_to_kill = (*it)->getPid();
       my_kill(pid_to_kill, SIGKILL);
-      waitpid(pid_to_kill, nullptr, WNOHANG);   // TODO consider to use because of zombies
+      // waitpid(pid_to_kill, nullptr, WNOHANG);   // TODO consider to use because of zombies
   }
 }
 
@@ -680,9 +671,10 @@ void JobsList::killAllJobs(){
 void JobsList::removeFinishedJobs() {
   for (auto it = jobsVector.begin(); it != jobsVector.end(); ) {
       int status;
-      pid_t result = waitpid((*it)->getPid(), &status, WNOHANG);
+      pid_t pid_to_delete = (*it)->getPid();
+      pid_t result = waitpid(pid_to_delete, &status, WNOHANG);
 
-      if (result == (*it)->getPid()) {
+      if (result == pid_to_delete) {
           delete *it;  // Free the memory of the JobEntry object
           it = jobsVector.erase(it); // Remove the pointer from the vector
       } else {
@@ -714,13 +706,12 @@ JobsList::JobEntry* JobsList::getJobById(int jobId) {
 
 void JobsList::removeJobById(int jobId) {
   pid_t pid_to_kill = SmallShell::getInstance().getJobsList()->getJobById(jobId)->getPid();
-  int status;
   if(my_kill(pid_to_kill, SIGKILL) < 0){                                        
     //handle with error with system call TODO
     std::cout << "kill failed" << std::endl;
   }
-  waitpid(pid_to_kill, &status, WNOHANG);                                         // TODO need not to eait to children
-  // SmallShell::getInstance().getJobsList()->removeFinishedJobs();
+  waitpid(pid_to_kill, nullptr, 0);                             // Ensure no zombie to be created at this moment
+  SmallShell::getInstance().getJobsList()->removeFinishedJobs();
 }
 
 
