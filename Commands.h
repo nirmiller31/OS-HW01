@@ -262,8 +262,10 @@ public:
 };
 
 class WatchProcCommand : public BuiltInCommand {
+private:
+    const char* m_cmdLine;
 public:
-    WatchProcCommand(const char *cmd_line);
+    WatchProcCommand(const char *cmd_line) {m_cmdLine = cmd_line;}
 
     virtual ~WatchProcCommand() {
     }

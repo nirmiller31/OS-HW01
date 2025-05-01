@@ -8,6 +8,7 @@
 #include "Commands.h"
 #include "signals.h"
 #include <algorithm>
+#include <fstream>
 #include <regex>
 
 using namespace std;
@@ -154,6 +155,9 @@ Command *SmallShell::CreateCommand(const char *cmd_line) {
   }
   else if (firstWord.compare("unsetenv") == 0) {
     return new UnSetEnvCommand(cmd_line);
+  }
+  else if (firstWord.compare("watchproc") == 0) {
+    return new WatchProcCommand(cmd_line);
   }
 
   else {
@@ -459,6 +463,38 @@ bool UnSetEnvCommand::is_environment_variable(const char* varName) {
   const char* value = std::getenv(varName);
   std::cout << "unsetenv: value is " << value << std::endl;
   return value != nullptr;
+}
+//------------------------------------------------------------------------------------------------------------------------------
+// ------------------------------------------------------End-of-section---------------------------------------------------------
+//****************************************************************************************************************************//
+//****************************************************************************************************************************//
+// ---------------------------------------Watch Procces Command methods section-------------------------------------------------
+//------------------------------------------------------------------------------------------------------------------------------
+void WatchProcCommand::execute(){
+
+  char* args[21]; 
+  int argc = _parseCommandLine(m_cmdLine, args);
+  if(argc != 2 || atoi(args[1]) <= 0){
+    std::cout << "smash error: watchproc: invalid arguements" << std::endl;
+  }
+  else{
+    pid_t pid_to_print = atoi(args[1]);
+    if(my_kill(pid_to_print, 0) == 0){                  // Process exist, and we have permission
+      std::string path = "/proc/" + std::to_string(pid_to_print) + "/status";
+      std::ifstream statusFile(path);
+      if (!statusFile.is_open()) {
+          std::cerr << "Error: Cannot open " << path << " — process may not exist.\n";
+          return;
+      }
+      std::string line;
+      while (std::getline(statusFile, line)) {
+          std::cout << line << std::endl;
+      }
+    }
+    else{
+      std::cout << "smash error: watchproc: pid " << pid_to_print << " does not exist" << std::endl;
+    }
+  }
 }
 //------------------------------------------------------------------------------------------------------------------------------
 // ------------------------------------------------------End-of-section---------------------------------------------------------
