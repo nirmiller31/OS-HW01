@@ -450,9 +450,7 @@ void UnSetEnvCommand::execute(){
   else{
     for(int i = 1 ; i<argc ; i++){
       if(is_environment_variable(args[i])){
-        if (unsetenv(args[i]) != 0){                                                // it unsets the varaiable only for smash!!! not for bash. TODO check their intentions
-          std::cout << "Failed to unset enviorment" << std::endl;
-        }
+        SmallShell::getInstance().unset_enviorment(args[i]);
       }
       else{
         std::cout << "smash error: unsetenv: " << args[i] << "does not exist" << std::endl;
@@ -461,13 +459,35 @@ void UnSetEnvCommand::execute(){
   }
 }
 
-bool UnSetEnvCommand::is_environment_variable(const char* varName) {
+void SmallShell::unset_enviorment(string varName) {
 
-  std::string path_to_check = "/proc/" + to_string(getpid()) + "/environ";
+// std::cout << "----------------------------------------------Im unsetting for PID: " << getpid() << std::endl;
+
+  for (char **env = __environ; *env != nullptr; ++env) {
+        std::string env_var(*env);
+        
+        string string_to_search = varName + "=";                  // Check if the current environment variable starts with the desired key
+        size_t pos = env_var.find(string_to_search.c_str());
+        if (pos == 0) {                                           // If it's the variable we want to remove
+            
+            char **shift = env;                                   // Shift all following elements to remove this one
+            while (*shift != nullptr) {
+              *(shift) = *(shift + 1);
+              shift++;
+            }
+            break;                                                // We found and removed the variable, so we can stop
+        }
+  }
+}
+
+bool UnSetEnvCommand::is_environment_variable(const char* varName) {
+  
+
+  std::string path_to_check = "/proc/" + to_string(SmallShell::getInstance().get_pid()) + "/environ";
   int fd = open(path_to_check.c_str(), O_RDONLY);
   if (fd == -1) {
       perror("open");
-      return;
+      return false;
   }
 
   const size_t bufferSize = 8192;                                       // 8 KB buffer
@@ -476,14 +496,24 @@ bool UnSetEnvCommand::is_environment_variable(const char* varName) {
   close(fd);
 
   string current_check = "";
+  string debug_str = "";
+  bool equal_flag = false;
+
   for(int i = 0 ; i<bytesRead ; i++){
     if(buffer[i] != '\0'){
-      current_check += buffer[i];
+      if(buffer[i] == '=') {equal_flag = true;}
+      if(!equal_flag) {current_check += buffer[i];}
     }
     else{
-      std::cout << "Im checking: " << current_check << std::endl;
+      if(string(varName) == current_check) {
+        return true;
+      }
+      // std::cout << "Im checking: " << current_check << std::endl;     // For debug
+      equal_flag = false;                                                 // Reset the search
+      current_check = "";
     }
   }
+  return false;
 }
 //------------------------------------------------------------------------------------------------------------------------------
 // ------------------------------------------------------End-of-section---------------------------------------------------------
