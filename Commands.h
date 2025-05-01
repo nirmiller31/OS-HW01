@@ -239,7 +239,7 @@ class UnAliasCommand : public BuiltInCommand {
 private:
     const char* m_cmdLine;
 public:
-    UnAliasCommand(const char *cmd_line) {m_cmdLine = cmd_line;};
+    UnAliasCommand(const char *cmd_line) {m_cmdLine = cmd_line;}
 
     virtual ~UnAliasCommand() {
     }
@@ -248,13 +248,17 @@ public:
 };
 
 class UnSetEnvCommand : public BuiltInCommand {
+private:
+    const char* m_cmdLine;
 public:
-    UnSetEnvCommand(const char *cmd_line);
+    UnSetEnvCommand(const char *cmd_line) {m_cmdLine = cmd_line;}
 
     virtual ~UnSetEnvCommand() {
     }
 
     void execute() override;
+
+    bool is_environment_variable(const char* varName);
 };
 
 class WatchProcCommand : public BuiltInCommand {
@@ -344,7 +348,7 @@ public:
 
     ~SmallShell();
 
-    class Alias {
+    class Alias {                                       // TODO add a bool exist field to manage deletion
         private:
             std::string m_aliasName;
             std::string m_aliasCommand;

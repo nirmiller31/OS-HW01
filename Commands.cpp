@@ -345,7 +345,6 @@ void KillCommand::execute(){
 
   SmallShell::getInstance().getJobsList()->removeFinishedJobs();
 
-  // pid_t main_pid = SmallShell::getInstance().get_pid();
   char* args[20]; 
   int argc = _parseCommandLine(m_cmdLine, args);
 
@@ -410,7 +409,7 @@ void AliasCommand::execute(){
 //------------------------------------------------------------------------------------------------------------------------------
 void UnAliasCommand::execute(){
 
-  char* args[20]; 
+  char* args[21]; 
   int argc = _parseCommandLine(m_cmdLine, args);
   if(argc == 1){
     std::cout << "smash error: unalias: not enough arguements" << std::endl;
@@ -425,6 +424,34 @@ void UnAliasCommand::execute(){
       }
     }
   }
+}
+//------------------------------------------------------------------------------------------------------------------------------
+// ------------------------------------------------------End-of-section---------------------------------------------------------
+//****************************************************************************************************************************//
+//****************************************************************************************************************************//
+// -----------------------------------------Unset Env Command methods section---------------------------------------------------
+//------------------------------------------------------------------------------------------------------------------------------
+void UnSetEnvCommand::execute(){
+
+  char* args[21]; 
+  int argc = _parseCommandLine(m_cmdLine, args);
+  if(argc == 1){
+    std::cout << "smash error: unsetenv: not enough arguements" << std::endl;
+  }
+  else{
+    for(int i = 1 ; i<argc ; i++){
+      if(is_environment_variable(args[i])){
+        if (unsetenv(args[i]) != 0){
+          std::cout << "Failed to unset enviorment" << std::endl;
+        }
+      }
+    }
+  }
+}
+
+bool UnSetEnvCommand::is_environment_variable(const char* varName) {
+  const char* value = std::getenv(varName);
+  return value != nullptr;
 }
 //------------------------------------------------------------------------------------------------------------------------------
 // ------------------------------------------------------End-of-section---------------------------------------------------------
