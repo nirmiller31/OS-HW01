@@ -366,7 +366,8 @@ void KillCommand::execute(){
 
     if(job_entry != nullptr){                                               // Check that a job with this ID exist
       std::cout << "signal number " << jobIsignal_num << " was sent to pid " << job_entry->getPid() << std::endl;
-      SmallShell::getInstance().getJobsList()->removeJobById(jobId);
+      my_kill(job_entry->getPid(), jobIsignal_num);
+      // SmallShell::getInstance().getJobsList()->removeJobById(jobId);
     }
     else {
       std::cout << "smash error: kill: job-id " << jobId << " does not exist" << std::endl;
@@ -375,6 +376,7 @@ void KillCommand::execute(){
   else{
     std::cout << "smash error: kill: invalid arguements" << std::endl;
   }
+  SmallShell::getInstance().getJobsList()->removeFinishedJobs();
 }
 //------------------------------------------------------------------------------------------------------------------------------
 // ------------------------------------------------------End-of-section---------------------------------------------------------
@@ -710,7 +712,7 @@ void JobsList::removeJobById(int jobId) {
     //handle with error with system call TODO
     std::cout << "kill failed" << std::endl;
   }
-  waitpid(pid_to_kill, nullptr, 0);                             // Ensure no zombie to be created at this moment
+  // waitpid(pid_to_kill, nullptr, 0);                             // Ensure no zombie to be created at this moment
   SmallShell::getInstance().getJobsList()->removeFinishedJobs();
 }
 
