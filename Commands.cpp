@@ -152,6 +152,9 @@ Command *SmallShell::CreateCommand(const char *cmd_line) {
   else if (firstWord.compare("unalias") == 0) {
     return new UnAliasCommand(cmd_line);
   }
+  else if (firstWord.compare("unsetenv") == 0) {
+    return new UnSetEnvCommand(cmd_line);
+  }
 
   else {
     return new ExternalCommand(cmd_line);
@@ -445,12 +448,16 @@ void UnSetEnvCommand::execute(){
           std::cout << "Failed to unset enviorment" << std::endl;
         }
       }
+      else{
+        std::cout << "smash error: unsetenv: " << args[i] << "does not exist" << std::endl;
+      }
     }
   }
 }
 
 bool UnSetEnvCommand::is_environment_variable(const char* varName) {
   const char* value = std::getenv(varName);
+  std::cout << "unsetenv: value is " << value << std::endl;
   return value != nullptr;
 }
 //------------------------------------------------------------------------------------------------------------------------------
