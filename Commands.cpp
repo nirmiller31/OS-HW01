@@ -444,7 +444,7 @@ void UnSetEnvCommand::execute(){
   else{
     for(int i = 1 ; i<argc ; i++){
       if(is_environment_variable(args[i])){
-        if (unsetenv(args[i]) != 0){
+        if (unsetenv(args[i]) != 0){                                                // it unsets the varaiable only for smash!!! not for bash. TODO check their intentions
           std::cout << "Failed to unset enviorment" << std::endl;
         }
       }
