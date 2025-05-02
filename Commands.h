@@ -79,13 +79,17 @@ public:
 };
 
 class WhoAmICommand : public Command {
+private:
+    const char* m_cmdLine;
 public:
-    WhoAmICommand(const char *cmd_line);
+    WhoAmICommand(const char *cmd_line) {m_cmdLine = cmd_line;};
 
     virtual ~WhoAmICommand() {
     }
 
     void execute() override;
+
+
 };
 
 class NetInfo : public Command {
@@ -374,6 +378,7 @@ public:
     void executeCommand(const char *cmd_line);
     void unset_enviorment(std::string varName);
 
+    uid_t get_shell_uid();
     pid_t get_pid() {return m_pid;}
     std::string getLastCmdLine()const;
 

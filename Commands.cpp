@@ -161,6 +161,11 @@ Command *SmallShell::CreateCommand(const char *cmd_line) {
     return new WatchProcCommand(cmd_line);
   }
 
+
+  else if (firstWord.compare("whoami") == 0) {
+    return new WhoAmICommand(cmd_line);
+  }
+
   else {
     return new ExternalCommand(cmd_line);
   }
@@ -716,6 +721,47 @@ void WatchProcCommand::execute(){
       std::cout << "smash error: watchproc: pid " << pid_to_print << " does not exist" << std::endl;
     }
   }
+}
+//------------------------------------------------------------------------------------------------------------------------------
+// ------------------------------------------------------End-of-section---------------------------------------------------------
+//****************************************************************************************************************************//
+//****************************************************************************************************************************//
+// ------------------------------------------Who Am I Command methods section---------------------------------------------------
+//------------------------------------------------------------------------------------------------------------------------------
+void WhoAmICommand::execute(){
+
+  uid_t shell_uid = SmallShell::getInstance().get_shell_uid();
+}
+
+uid_t SmallShell::get_shell_uid(){
+
+  std::string path_to_check = "/proc/" + to_string(SmallShell::getInstance().get_pid()) + "/status";
+  int fd = open(path_to_check.c_str(), O_RDONLY);
+  if (fd == -1) {
+      perror("open");
+      return false;
+  }
+
+  const size_t bufferSize = 8192;                                       // 8 KB buffer
+  char buffer[bufferSize];
+  ssize_t bytesRead = read(fd, buffer, bufferSize);
+  close(fd);
+
+  for(int i = 0 ; i<bytesRead ; i++){
+    // if(buffer[i] != '\0'){
+      // if(buffer[i] == '=') {equal_flag = true;}
+      // if(!equal_flag) {current_check += buffer[i];}
+    // }
+    // else{
+      // if(string(varName) == current_check) {
+        // return true;
+      // }
+      std::cout << buffer[i] << std::endl;     // For debug
+      // equal_flag = false;                                                 // Reset the search
+      // current_check = "";
+    }
+  }
+
 }
 //------------------------------------------------------------------------------------------------------------------------------
 // ------------------------------------------------------End-of-section---------------------------------------------------------
