@@ -69,8 +69,10 @@ public:
 };
 
 class DiskUsageCommand : public Command {
+private:
+    const char* m_cmdLine;
 public:
-    DiskUsageCommand(const char *cmd_line);
+    DiskUsageCommand(const char *cmd_line)  {m_cmdLine = cmd_line;}
 
     virtual ~DiskUsageCommand() {
     }
@@ -82,7 +84,7 @@ class WhoAmICommand : public Command {
 private:
     const char* m_cmdLine;
 public:
-    WhoAmICommand(const char *cmd_line) {m_cmdLine = cmd_line;};
+    WhoAmICommand(const char *cmd_line) {m_cmdLine = cmd_line;}
 
     virtual ~WhoAmICommand() {
     }
