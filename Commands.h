@@ -89,7 +89,7 @@ public:
 
     void execute() override;
 
-
+    void get_user_and_path_by_uid(uid_t uid, std::string result[2]);
 };
 
 class NetInfo : public Command {

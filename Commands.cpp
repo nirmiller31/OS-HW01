@@ -730,10 +730,88 @@ void WatchProcCommand::execute(){
 //------------------------------------------------------------------------------------------------------------------------------
 void WhoAmICommand::execute(){
 
+  string result[2];
+
   uid_t shell_uid = SmallShell::getInstance().get_shell_uid();
+  get_user_and_path_by_uid(shell_uid, result); 
+  std::cout << result[0] << " " << result[1] << std::endl;
+}
+
+void WhoAmICommand::get_user_and_path_by_uid(uid_t shell_uid, string result[2]){
+
+  std::string path_to_check = "/etc/passwd";
+  int fd = open(path_to_check.c_str(), O_RDONLY);
+  if (fd == -1) {
+      perror("open");
+      return;
+  }
+
+  const size_t bufferSize = 8192;                                       // 8 KB buffer
+  char buffer[bufferSize];
+  ssize_t bytesRead = read(fd, buffer, bufferSize);
+  close(fd);
+
+  bool username_read_enable = true;
+  bool home_path_read_enable = false;
+  bool uid_read_enable = false;
+  int num_of_dots = 0;
+
+  string username_string = "";
+  string home_path_string = "";
+  string uid_string = "";
+
+  for(int i = 0 ; i<bytesRead ; i++){
+
+    if(username_read_enable && (buffer[i] != ':')){         // Username is the first word until ':'
+      username_string += buffer[i];
+    }
+    else{
+      username_read_enable = false;                         // If we saw a ':' than first word over
+    }
+
+    if(buffer[i] == ':'){                                   // Count the word location
+      num_of_dots++;
+    }
+
+    if (num_of_dots > 3){                                   // If we passed the third word (UID)
+      uid_read_enable = false;
+    }
+    if(uid_read_enable){
+      uid_string += buffer[i];
+    }
+    if(num_of_dots == 3){                                   // If we just started to read the third word
+      uid_read_enable = true;
+    }
+
+    if (num_of_dots > 5){                                   // If we passed the fifth word (home path)
+      home_path_read_enable = false;
+    }
+    if(home_path_read_enable){
+      home_path_string += buffer[i];
+    }
+    if(num_of_dots == 5){                                   // If we just started to read the fifth word
+      home_path_read_enable = true;
+    }
+
+    if(buffer[i] == '\n'){
+
+      if(uid_t(atoi(uid_string.c_str())) == shell_uid){
+        result[0] = username_string;
+        result[1] = home_path_string;
+        return;
+      }
+      username_string = "";                                 // Reset all to start a new line search
+      username_read_enable = true;
+      uid_string = "";
+      home_path_string = "";
+      num_of_dots = 0;
+    }
+  }
 }
 
 uid_t SmallShell::get_shell_uid(){
+
+  char* args[5];
 
   std::string path_to_check = "/proc/" + to_string(SmallShell::getInstance().get_pid()) + "/status";
   int fd = open(path_to_check.c_str(), O_RDONLY);
@@ -747,21 +825,24 @@ uid_t SmallShell::get_shell_uid(){
   ssize_t bytesRead = read(fd, buffer, bufferSize);
   close(fd);
 
+  bool read_enable = false;
+  string uid_string = "";
+
   for(int i = 0 ; i<bytesRead ; i++){
-    // if(buffer[i] != '\0'){
-      // if(buffer[i] == '=') {equal_flag = true;}
-      // if(!equal_flag) {current_check += buffer[i];}
-    // }
-    // else{
-      // if(string(varName) == current_check) {
-        // return true;
-      // }
-      std::cout << buffer[i] << std::endl;     // For debug
-      // equal_flag = false;                                                 // Reset the search
-      // current_check = "";
+    if(buffer[i] == 'U' && buffer[i+1] == 'i' && buffer[i+2] == 'd' && buffer[i+3] == ':'){
+      read_enable = true;
+    }
+    if(read_enable && buffer[i] == '\n'){
+      read_enable = false;
+    }
+    if(read_enable){
+      uid_string += buffer[i];
     }
   }
+  
+  _parseCommandLine(uid_string.c_str(), args);
 
+  return atoi(args[1]);
 }
 //------------------------------------------------------------------------------------------------------------------------------
 // ------------------------------------------------------End-of-section---------------------------------------------------------
