@@ -271,6 +271,11 @@ public:
     }
 
     void execute() override;
+
+    unsigned long long getProcCpuTime(pid_t pid);
+    unsigned long long getTotalCpuTime();
+    unsigned long long getCpuUsage(pid_t pid);
+    std::string getMemUsage(pid_t pid);
 };
 
 class JobsList {
@@ -367,6 +372,8 @@ public:
     void set_last_dir(std::string plastPwd) {this->m_plastPwd = plastPwd;}
     JobsList* getJobsList();
     void executeCommand(const char *cmd_line);
+    void unset_enviorment(std::string varName);
+
     pid_t get_pid() {return m_pid;}
     std::string getLastCmdLine()const;
 

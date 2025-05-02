@@ -48,5 +48,6 @@
         "algorithm": "cpp",
         "regex": "cpp",
         "__config": "cpp"
+        "atomic": "cpp",
     }
 }
