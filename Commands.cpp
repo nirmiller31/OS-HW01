@@ -253,7 +253,7 @@ void ShowPidCommand::execute() {
 
 void GetCurrDirCommand::execute() {
   char pwd[200];
-  getcwd(pwd, sizeof(pwd));
+  getcwd(pwd, sizeof(pwd));       // &&&&&&&&&&&&&&&& TODO probebly fixx
   std::cout << pwd << std::endl;
 }
 
@@ -285,7 +285,7 @@ const char* ChangeDirCommand::take_second_arg(const char *cmd_line) {
 void ChangeDirCommand::execute() {
 
   char pwd[200];
-  getcwd(pwd, sizeof(pwd));
+  getcwd(pwd, sizeof(pwd));       // &&&&&&&&&&&&&&&& TODO probebly fixx
   std::string old_string = std::string(pwd);
 
   if (std::string(m_newDir).compare("-") == 0) {                            // Check if special key activated
@@ -857,10 +857,32 @@ void DiskUsageCommand::execute(){
   char* args[21]; 
   int argc = _parseCommandLine(m_cmdLine, args);
 
-  const char* path = args[1];
-
-  std::cout << "the result is:" << sum_directory_files(path) << std::endl;
+  if(argc == 1){
+    const char* path = SmallShell::getInstance().get_shell_pwd().c_str();
+    std::cout << "Total disk usage: " << (sum_directory_files(path) / 1024.0) << " KB" << std::endl;
+  }
+  else if(argc == 2){
+    const char* path = args[1];
+    std::cout << "Total disk usage: " << (sum_directory_files(path) / 1024.0) << " KB" << std::endl;
+  }
+  else{
+    std::cout << "smash error: du: too many arguements" << std::endl;
+  }
 }
+
+
+string SmallShell::get_shell_pwd(){
+  char pwd[200];
+  ssize_t len = syscall(SYS_readlink, "/proc/self/cwd", pwd, sizeof(pwd) - 1);
+  if (len != -1) {
+    pwd[len] = '\0';  // Null-terminate the string
+      std::cout << "Current directory: " << pwd << '\n';
+  } else {
+      std::cerr << "Failed to read /proc/self/cwd\n";
+  }
+  return string(pwd);
+}
+
 
 int DiskUsageCommand::sum_directory_files(const char* dirPath) {
 
@@ -894,8 +916,7 @@ int DiskUsageCommand::sum_directory_files(const char* dirPath) {
                 else{
                   struct stat file_stat;
                   stat(current_entry_path.c_str(), &file_stat);
-                  std::cout << "The size is:" << (file_stat.st_blocks * 512) << '\n';
-                  dir_sum += (file_stat.st_blocks * 512);
+                  dir_sum += (file_stat.st_blocks * 512);                                 // Calculation of disk usage
                 }
             }
             current_position += dir_entry->record_length;                                 // Move to the next directory entry
