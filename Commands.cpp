@@ -4,6 +4,8 @@
 #include <vector>
 #include <sstream>
 #include <sys/wait.h>
+#include <sys/syscall.h>
+#include <sys/stat.h>
 #include <iomanip>
 #include "Commands.h"
 #include "signals.h"
@@ -850,39 +852,57 @@ uid_t SmallShell::get_shell_uid(){
 //****************************************************************************************************************************//
 // -----------------------------------------Disk Usage Command methods section--------------------------------------------------
 //------------------------------------------------------------------------------------------------------------------------------
-void ExternalCommand::execute(){
+void DiskUsageCommand::execute(){
 
   char* args[21]; 
   int argc = _parseCommandLine(m_cmdLine, args);
 
   const char* path = args[1];
 
-  int fd = open(path, O_RDONLY | O_DIRECTORY);
-  if (fd < 0) {
-      std::cerr << "Failed to open directory\n";
-      return;
-  }
+  std::cout << "the result is:" << sum_directory_files(path) << std::endl;
+}
 
-  char buf[4096];
-  int nread;
+int DiskUsageCommand::sum_directory_files(const char* dirPath) {
 
-  while ((nread = syscall(SYS_getdents64, fd, buf, sizeof(buf))) > 0) {
-      int bpos = 0;
-      while (bpos < nread) {
-          struct linux_dirent64* d = (struct linux_dirent64*)(buf + bpos);
-          std::string name = d->d_name;
+    int dir_FD = open(dirPath, O_RDONLY | O_DIRECTORY);
+    if (dir_FD < 0) {
+        std::cerr << "Failed to open directory: " << dirPath << "\n";
+        return 0;
+    }
 
-          // Skip "." and ".."
-          if (name != "." && name != "..") {
-              std::cout << name << "\n";
-          }
+    char buffer[8192];                                                                    // Buffer to hold directory entries
+    int num_bytes_read;
 
-          bpos += d->d_reclen;
-      }
-  }
+    int dir_sum = 0;
 
-  close(fd);
-  return;
+    while ((num_bytes_read = syscall(SYS_getdents64, dir_FD, buffer, sizeof(buffer))) > 0) { // Read the directory contents into the buffer (SYS_getdents64 is 217 syscall)
+        int current_position = 0;                                                         // Track position in the buffer
+        
+        while (current_position < num_bytes_read) {                                       // Process each directory entry
+            linux_dirent64* dir_entry = (linux_dirent64*)(buffer + current_position);     // Cast to directory entry structure
+            std::string current_entry_name = dir_entry->entry_name;                       // Get the name of the entry
+
+            if (current_entry_name != "." && current_entry_name != "..") {                // Skip "." and ".." entries
+                std::string current_entry_path = string(dirPath) + "/" + current_entry_name;
+                std::cout << current_entry_path << '\n';                                  // Print the full path of the entry
+
+                if (dir_entry->entry_type == DT_DIR) {                                    // If is a sub-directory
+                    std::string sub_dir_path = std::string(dirPath) + "/" + current_entry_name;
+                    
+                    dir_sum += sum_directory_files(sub_dir_path.c_str());                 // Recursive call for subdirectory
+                }
+                else{
+                  struct stat file_stat;
+                  stat(current_entry_path.c_str(), &file_stat);
+                  std::cout << "The size is:" << (file_stat.st_blocks * 512) << '\n';
+                  dir_sum += (file_stat.st_blocks * 512);
+                }
+            }
+            current_position += dir_entry->record_length;                                 // Move to the next directory entry
+        }
+        return dir_sum;
+    }
+    close(dir_FD);                                                                        // Close the directory
 }
 //------------------------------------------------------------------------------------------------------------------------------
 // ------------------------------------------------------End-of-section---------------------------------------------------------

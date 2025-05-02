@@ -3,6 +3,7 @@
 #define SMASH_COMMAND_H_
 
 #include <vector>
+#include <sys/types.h>
 
 #define COMMAND_MAX_LENGTH (200)
 #define COMMAND_MAX_ARGS (20)
@@ -72,12 +73,25 @@ class DiskUsageCommand : public Command {
 private:
     const char* m_cmdLine;
 public:
+
+#define DT_DIR     4
+
+struct linux_dirent64 {
+    ino64_t        inode;
+    off64_t        offset;
+    unsigned short record_length;
+    unsigned char  entry_type;
+    char           entry_name[]; // Flexible array
+};
+
     DiskUsageCommand(const char *cmd_line)  {m_cmdLine = cmd_line;}
 
     virtual ~DiskUsageCommand() {
     }
 
     void execute() override;
+
+    int sum_directory_files(const char* dirPath);
 };
 
 class WhoAmICommand : public Command {
