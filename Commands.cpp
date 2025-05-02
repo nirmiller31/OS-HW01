@@ -858,12 +858,18 @@ void DiskUsageCommand::execute(){
   int argc = _parseCommandLine(m_cmdLine, args);
 
   if(argc == 1){
-    const char* path = SmallShell::getInstance().get_shell_pwd().c_str();
-    std::cout << "Total disk usage: " << (sum_directory_files(path) / 1024.0) << " KB" << std::endl;
+    std::cout << "Total disk usage: " << (sum_directory_files(SmallShell::getInstance().get_shell_pwd().c_str()) / 1024.0) << " KB" << std::endl;
   }
   else if(argc == 2){
-    const char* path = args[1];
-    std::cout << "Total disk usage: " << (sum_directory_files(path) / 1024.0) << " KB" << std::endl;
+
+    int dir_FD = open(args[1], O_RDONLY | O_DIRECTORY);                                       //----------------------------------------------------
+    if (dir_FD < 0) {                                                                         //
+        std::cout << "smash error: du: " << args[1] << " does not exist" << std::endl;        // Check exsitance, other function is recursive.
+        return;                                                                             //
+    }                                                                                         //
+    close(dir_FD);                                                                            //-----------------------------------------------------
+
+    std::cout << "Total disk usage: " << (sum_directory_files(args[1]) / 1024.0) << " KB" << std::endl;
   }
   else{
     std::cout << "smash error: du: too many arguements" << std::endl;
@@ -876,11 +882,11 @@ string SmallShell::get_shell_pwd(){
   ssize_t len = syscall(SYS_readlink, "/proc/self/cwd", pwd, sizeof(pwd) - 1);
   if (len != -1) {
     pwd[len] = '\0';  // Null-terminate the string
-      std::cout << "Current directory: " << pwd << '\n';
+      std::cout << "Current directory: " << string(pwd) << '\n';
   } else {
       std::cerr << "Failed to read /proc/self/cwd\n";
   }
-  return string(pwd);
+  return pwd;
 }
 
 
@@ -888,7 +894,6 @@ int DiskUsageCommand::sum_directory_files(const char* dirPath) {
 
     int dir_FD = open(dirPath, O_RDONLY | O_DIRECTORY);
     if (dir_FD < 0) {
-        std::cerr << "Failed to open directory: " << dirPath << "\n";
         return 0;
     }
 

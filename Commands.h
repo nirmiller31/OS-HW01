@@ -390,7 +390,7 @@ public:
     void set_prompt(std::string new_prompt) {this->m_prompt = new_prompt;}
     char** get_last_dir();
     void set_last_dir(std::string plastPwd) {this->m_plastPwd = plastPwd;}
-    string get_shell_pwd();
+    std::string get_shell_pwd();
     JobsList* getJobsList();
     void executeCommand(const char *cmd_line);
     void unset_enviorment(std::string varName);
