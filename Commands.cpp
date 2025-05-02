@@ -116,12 +116,14 @@ Command *SmallShell::CreateCommand(const char *cmd_line) {
 
   string cmd_s = _trim(string(cmd_line));
   string firstWord = cmd_s.substr(0, cmd_s.find_first_of(" \n"));
+  string seconedWord = cmd_s.substr(0, cmd_s.find_first_of(" \n"));
 
   if(SmallShell::getInstance().alias_exist(firstWord.c_str())){                     // Check a case of an alias
     string alias_name = firstWord.c_str();                                          // If exist, than it is alias's name
     cmd_line = SmallShell::getInstance().get_command_by_alias(alias_name).c_str();  // Extract the alias's command 
     cmd_s = _trim(string(cmd_line));                                                // Repeat the same process for the alias
     firstWord = cmd_s.substr(0, cmd_s.find_first_of(" \n"));
+    
   }
 
   if (firstWord.compare("chprompt") == 0) {
@@ -161,6 +163,9 @@ Command *SmallShell::CreateCommand(const char *cmd_line) {
     return new WatchProcCommand(cmd_line);
   }
 
+  else if (firstWord.compare("whoami") == 0) {
+    return new RedirectionCommand(cmd_line);
+  }
 
   else if (firstWord.compare("whoami") == 0) {
     return new WhoAmICommand(cmd_line);
@@ -576,7 +581,7 @@ unsigned long long WatchProcCommand::getProcCpuTime(pid_t pid){ //!!!!!!check if
     stime = (stime * 10) + (buffer[i] - '0'); //shifiting utime and adding the current digit (after converting char to int) - adding digit by digit form left to right 
     i++;
   }
-  
+  //std::cout << "stime: " << stime << " utime: " << utime <<std::endl;
   return (stime + utime); //return the process with the given pid kernel mode time and user mode time 
 
 };
@@ -598,25 +603,23 @@ unsigned long long WatchProcCommand::getTotalCpuTime(){
   buffer[bytesRead] = '\0';
   const char* target_word = "cpu";
   static const int target_len = 3;
-  int i = 0;
-
-  while((i < bytesRead) && (strncmp(&buffer[i], target_word, target_len) != 0)){ 
+  size_t i = 0;
+  while((i < (size_t)bytesRead) && (strncmp(&buffer[i], target_word, target_len) != 0)){ 
     i++;
   }
-  if (i == bytesRead){
+  if (i == (size_t)bytesRead){
     return 0;
   }
 
-  while(buffer[i] < '0' || buffer[i] < '9'){
+  while((i < (size_t)bytesRead) && (buffer[i] < '0' || buffer[i] > '9')){
     i++; //skip the 'cpu' lable 
   }
-   
   
   unsigned long long total_cpu_time = 0;
   unsigned long long curr_field_time = 0;
   int curr_field_number = 0;
 
-  while(i < bytesRead && curr_field_number < 10){
+  while(i < (size_t)bytesRead && curr_field_number < 10){
     while(buffer[i] >= '0' && buffer[i] <= '9'){
       if (i >= bytesRead){
         return 0; //might need to change
@@ -632,6 +635,7 @@ unsigned long long WatchProcCommand::getTotalCpuTime(){
     i++;
     } 
   }
+  //std::cout << "total_cpu_time: " << total_cpu_time << std::endl;
   return total_cpu_time;
 };
 
@@ -646,10 +650,12 @@ unsigned long long WatchProcCommand::getCpuUsage(pid_t pid){
 
   unsigned long long process_time2 = getProcCpuTime(pid);
   unsigned long long total_time2 = getTotalCpuTime();
-  
+
   unsigned long long delta_process = process_time2 - process_time1;
-  unsigned long long delta_total = total_time2 -total_time1;
-  
+  //std::cout <<"Delta Process Time: " << process_time2 << " - " << process_time1 << " = "<< delta_process  << std::endl;
+  unsigned long long delta_total = total_time2 - total_time1;
+  //std::cout <<"Delta Total Time: " << total_time2 << " - " << total_time1 << " = "<< delta_total  << std::endl;
+
   if (delta_total == 0){
     return 0;
   }
@@ -680,11 +686,10 @@ std::string WatchProcCommand::getMemUsage(pid_t pid){
   while(i < (size_t)bytesRead){
     if(strncmp(&buffer[i], target_line, target_line_len) == 0){
       i += target_line_len;
-      while(i < (size_t)bytesRead && buffer[i] == ' '){
+      while(i < (size_t)bytesRead && (buffer[i] > '9' || buffer[i] < '0')){
         i++;
       }
       size_t start_index = i;
-
       while(i < (size_t)bytesRead && buffer[i] != '\n'){
         i++;
       }
