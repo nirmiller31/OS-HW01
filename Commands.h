@@ -124,9 +124,15 @@ public:
 
     bool interface_exist(std::string input_interface_name);
 
+    void print_netinfo(std::string input_interface_name);
+
     std::string get_IP_for_interface(std::string input_interface_name);
 
     std::string get_subnet_mask_for_interface(std::string input_interface_name);
+
+    std::string get_dg_for_interface(std::string input_interface_name);
+
+    void print_DNS_servers();
     
 };
 

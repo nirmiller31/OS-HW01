@@ -953,9 +953,7 @@ void NetInfo::execute(){
   }
   else if(argc == 2){
     if(interface_exist(args[1])){
-      std::cout << "IP address: " << get_IP_for_interface(args[1]) << std::endl;
-      std::cout << "Subnet Mask: " << get_subnet_mask_for_interface(args[1]) << std::endl;
-
+      print_netinfo(args[1]);
     }
     else{
       std::cout << "smash error: netinfo: interface " << args[1] << " does not exist" << std::endl;
@@ -965,6 +963,13 @@ void NetInfo::execute(){
     // TODO handle with it too
   }
 
+}
+
+void NetInfo::print_netinfo(string input_interface_name){
+  std::cout << "IP address: " << get_IP_for_interface(input_interface_name) << std::endl;
+  std::cout << "Subnet Mask: " << get_subnet_mask_for_interface(input_interface_name) << std::endl;
+  std::cout << "Default Gateway: " << get_dg_for_interface(input_interface_name) << std::endl;
+  print_DNS_servers();
 }
 
 string NetInfo::get_IP_for_interface(string input_interface_name){
@@ -1003,8 +1008,37 @@ string NetInfo::get_subnet_mask_for_interface(string input_interface_name){
 
 }
 
-void NetInfo::print_DNS_servers(){
+string NetInfo::get_dg_for_interface(string input_interface_name){
 
+  int fd = open("/proc/net/route", O_RDONLY);    // Open the file using open() system call
+  if (fd == -1) {
+      std::cerr << "Failed to open /etc/resolv.conf\n";
+      return "";
+  }
+
+  const size_t bufferSize = 8192;                                       // 8 KB buffer
+  char buffer[bufferSize];
+  ssize_t bytesRead = read(fd, buffer, bufferSize);
+  close(fd);
+
+  int DNS_index = 0;
+
+  char* args[512];
+  int buffer_size = _parseCommandLine(buffer, args);
+
+  for(int i = 0 ; i<buffer_size ; i++){
+    if((string(args[i]) == input_interface_name) && (string(args[i+1]) == "00000000")){
+      int result_0 = stoi(string({args[i+2][6], args[i+2][7]}), nullptr, 16);
+      int result_1 = stoi(string({args[i+2][4], args[i+2][5]}), nullptr, 16); 
+      int result_2 = stoi(string({args[i+2][2], args[i+2][3]}), nullptr, 16); 
+      int result_3 = stoi(string({args[i+2][0], args[i+2][1]}), nullptr, 16); 
+      return to_string(result_0) + "." + to_string(result_1) + "." + to_string(result_2) + "." + to_string(result_3); 
+    }
+  }
+  return "-.-.-.-";
+}
+
+void NetInfo::print_DNS_servers(){
     
   int fd = open("/etc/resolv.conf", O_RDONLY);    // Open the file using open() system call
   if (fd == -1) {
@@ -1017,13 +1051,21 @@ void NetInfo::print_DNS_servers(){
   ssize_t bytesRead = read(fd, buffer, bufferSize);
   close(fd);
 
-  string interface_name = "";
-  int num_of_enter = 0;
-  bool interface_read_enable = false;
+  int DNS_index = 0;
 
-  for(int i = 0 ; i<bytesRead ; i++){
-    std::cout << buffer[i];
+  char* args[512];
+  int buffer_size = _parseCommandLine(buffer, args);
+
+  for(int i = 0 ; i<buffer_size ; i++){
+    if(string(args[i]) == "nameserver"){
+      DNS_index = i+1;
+    }
   }
+  std::cout << "DNS Servers: " << args[DNS_index++];
+  while(string(args[DNS_index]) != "options"){
+    std::cout << ", " << args[DNS_index++];
+  }
+  std::cout << "\n";
   return;
 }
 
