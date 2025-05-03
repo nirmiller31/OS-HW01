@@ -356,14 +356,13 @@ void ChangeDirCommand::execute() {
 //------------------------------------------------------------------------------------------------------------------------------
 void QuitCommand::execute(){
 
-  // pid_t main_pid = SmallShell::getInstance().get_pid();
   char* args[20]; 
   int argc = _parseCommandLine(m_cmdLine, args);
   if(argc == 1){
     exit(0);
   }
   else if(string(args[1]) == "kill"){
-    int num_jobs = SmallShell::getInstance().getJobsList()->countLiveJobs();                // Verify if 0 jobs so it prints 0
+    int num_jobs = SmallShell::getInstance().getJobsList()->countLiveJobs();
     std::cout << "smash: sending SIGKILL signals to " << num_jobs << " jobs" << std::endl;
       m_jobs->printJobsListForKill();
       m_jobs->killAllJobs();
@@ -953,7 +952,7 @@ int DiskUsageCommand::sum_directory_files(const char* dirPath) {
                 if (dir_entry->entry_type == DT_DIR) {                                    // If is a sub-directory
                     std::string sub_dir_path = std::string(dirPath) + "/" + current_entry_name;
                     
-                    dir_sum += sum_directory_files(sub_dir_path.c_str());                 // Recursive call for subdirectory
+                    dir_sum += (sum_directory_files(sub_dir_path.c_str()) + 4096);                 // Recursive call for subdirectory
                 }
                 else{
                   struct stat file_stat;
@@ -963,9 +962,9 @@ int DiskUsageCommand::sum_directory_files(const char* dirPath) {
             }
             current_position += dir_entry->record_length;                                 // Move to the next directory entry
         }
-        return dir_sum;
     }
     close(dir_FD);                                                                        // Close the directory
+    return dir_sum;
 }
 //------------------------------------------------------------------------------------------------------------------------------
 // ------------------------------------------------------End-of-section---------------------------------------------------------
@@ -1051,9 +1050,7 @@ string NetInfo::get_dg_for_interface(string input_interface_name){
   ssize_t bytesRead = read(fd, buffer, bufferSize);
   close(fd);
 
-  int DNS_index = 0;
-
-  char* args[512];
+  char* args[bytesRead];
   int buffer_size = _parseCommandLine(buffer, args);
 
   for(int i = 0 ; i<buffer_size ; i++){
@@ -1065,7 +1062,7 @@ string NetInfo::get_dg_for_interface(string input_interface_name){
       return to_string(result_0) + "." + to_string(result_1) + "." + to_string(result_2) + "." + to_string(result_3); 
     }
   }
-  return "-.-.-.-";
+  return "";
 }
 
 void NetInfo::print_DNS_servers(){
@@ -1083,7 +1080,7 @@ void NetInfo::print_DNS_servers(){
 
   int DNS_index = 0;
 
-  char* args[512];
+  char* args[bytesRead];
   int buffer_size = _parseCommandLine(buffer, args);
 
   for(int i = 0 ; i<buffer_size ; i++){
@@ -1306,7 +1303,6 @@ void JobsList::printJobsListForKill(){
 
 void JobsList:: killAllJobs(){
   this->removeFinishedJobs();
-  int status;
   for (auto it = jobsVector.begin(); it != jobsVector.end(); ++it) {
       if (*it == nullptr) continue; // skip null entries
       
@@ -1431,8 +1427,6 @@ void ForegroundCommand::execute(){
   }
 }
 
-
-
 //------------------------------------------------------------------------------------------------------------------------------
 // ------------------------------------------------------End-of-section---------------------------------------------------------
 //****************************************************************************************************************************//
@@ -1473,8 +1467,6 @@ RedirectionCommand::~RedirectionCommand(){
   delete m_command;
 }
 
-
-
 void RedirectionCommand::execute(){ 
   int old_stdout_fd = dup(STDOUT_FILENO);
   if(old_stdout_fd == -1){
@@ -1506,7 +1498,6 @@ void RedirectionCommand::execute(){
   }
   close(old_stdout_fd);
 }
-
 
 //------------------------------------------------------------------------------------------------------------------------------
 // ------------------------------------------------------End-of-section---------------------------------------------------------
