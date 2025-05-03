@@ -4,6 +4,13 @@
 #include <vector>
 #include <sstream>
 #include <sys/wait.h>
+#include <sys/socket.h>
+#include <sys/syscall.h>
+#include <sys/ioctl.h>
+#include <sys/stat.h>
+#include <net/if.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
 #include <iomanip>
 #include "Commands.h"
 #include "signals.h"
@@ -149,7 +156,6 @@ Command *SmallShell::CreateCommand(const char *cmd_line) {
     cmd_line = SmallShell::getInstance().get_command_by_alias(alias_name).c_str();  // Extract the alias's command 
     cmd_s = _trim(string(cmd_line));                                                // Repeat the same process for the alias
     firstWord = cmd_s.substr(0, cmd_s.find_first_of(" \n"));
-    
   }
   if(_isRediractionCommand(cmd_line)){
     return new RedirectionCommand(cmd_line);
@@ -194,6 +200,14 @@ Command *SmallShell::CreateCommand(const char *cmd_line) {
   else if (firstWord.compare("whoami") == 0) {
     return new WhoAmICommand(cmd_line);
   }
+  else if (firstWord.compare("du") == 0) {
+    return new DiskUsageCommand(cmd_line);
+  }
+  else if (firstWord.compare("netinfo") == 0) {
+    return new NetInfo(cmd_line);
+  }
+
+>>>>>>> origin/main
   else {
     return new ExternalCommand(cmd_line);
   }
@@ -276,7 +290,7 @@ void ShowPidCommand::execute() {
 
 void GetCurrDirCommand::execute() {
   char pwd[200];
-  getcwd(pwd, sizeof(pwd));
+  getcwd(pwd, sizeof(pwd));       // &&&&&&&&&&&&&&&& TODO probebly fixx
   std::cout << pwd << std::endl;
 }
 
@@ -308,7 +322,7 @@ const char* ChangeDirCommand::take_second_arg(const char *cmd_line) {
 void ChangeDirCommand::execute() {
 
   char pwd[200];
-  getcwd(pwd, sizeof(pwd));
+  getcwd(pwd, sizeof(pwd));       // &&&&&&&&&&&&&&&& TODO probebly fixx
   std::string old_string = std::string(pwd);
 
   if (std::string(m_newDir).compare("-") == 0) {                            // Check if special key activated
@@ -604,7 +618,7 @@ unsigned long long WatchProcCommand::getProcCpuTime(pid_t pid){ //!!!!!!check if
     stime = (stime * 10) + (buffer[i] - '0'); //shifiting utime and adding the current digit (after converting char to int) - adding digit by digit form left to right 
     i++;
   }
-  //std::cout << "stime: " << stime << " utime: " << utime <<std::endl;
+  
   return (stime + utime); //return the process with the given pid kernel mode time and user mode time 
 
 };
@@ -626,23 +640,25 @@ unsigned long long WatchProcCommand::getTotalCpuTime(){
   buffer[bytesRead] = '\0';
   const char* target_word = "cpu";
   static const int target_len = 3;
-  size_t i = 0;
-  while((i < (size_t)bytesRead) && (strncmp(&buffer[i], target_word, target_len) != 0)){ 
+  int i = 0;
+
+  while((i < bytesRead) && (strncmp(&buffer[i], target_word, target_len) != 0)){ 
     i++;
   }
-  if (i == (size_t)bytesRead){
+  if (i == bytesRead){
     return 0;
   }
 
-  while((i < (size_t)bytesRead) && (buffer[i] < '0' || buffer[i] > '9')){
+  while(buffer[i] < '0' || buffer[i] < '9'){
     i++; //skip the 'cpu' lable 
   }
+   
   
   unsigned long long total_cpu_time = 0;
   unsigned long long curr_field_time = 0;
   int curr_field_number = 0;
 
-  while(i < (size_t)bytesRead && curr_field_number < 10){
+  while(i < bytesRead && curr_field_number < 10){
     while(buffer[i] >= '0' && buffer[i] <= '9'){
       if (i >= bytesRead){
         return 0; //might need to change
@@ -658,7 +674,6 @@ unsigned long long WatchProcCommand::getTotalCpuTime(){
     i++;
     } 
   }
-  //std::cout << "total_cpu_time: " << total_cpu_time << std::endl;
   return total_cpu_time;
 };
 
@@ -673,12 +688,10 @@ unsigned long long WatchProcCommand::getCpuUsage(pid_t pid){
 
   unsigned long long process_time2 = getProcCpuTime(pid);
   unsigned long long total_time2 = getTotalCpuTime();
-
+  
   unsigned long long delta_process = process_time2 - process_time1;
-  //std::cout <<"Delta Process Time: " << process_time2 << " - " << process_time1 << " = "<< delta_process  << std::endl;
-  unsigned long long delta_total = total_time2 - total_time1;
-  //std::cout <<"Delta Total Time: " << total_time2 << " - " << total_time1 << " = "<< delta_total  << std::endl;
-
+  unsigned long long delta_total = total_time2 -total_time1;
+  
   if (delta_total == 0){
     return 0;
   }
@@ -709,10 +722,11 @@ std::string WatchProcCommand::getMemUsage(pid_t pid){
   while(i < (size_t)bytesRead){
     if(strncmp(&buffer[i], target_line, target_line_len) == 0){
       i += target_line_len;
-      while(i < (size_t)bytesRead && (buffer[i] > '9' || buffer[i] < '0')){
+      while(i < (size_t)bytesRead && buffer[i] == ' '){
         i++;
       }
       size_t start_index = i;
+
       while(i < (size_t)bytesRead && buffer[i] != '\n'){
         i++;
       }
@@ -726,9 +740,6 @@ std::string WatchProcCommand::getMemUsage(pid_t pid){
   return "";
 
 };
-
-
-
 
 
 void WatchProcCommand::execute(){
@@ -876,6 +887,220 @@ uid_t SmallShell::get_shell_uid(){
 // ------------------------------------------------------End-of-section---------------------------------------------------------
 //****************************************************************************************************************************//
 //****************************************************************************************************************************//
+// -----------------------------------------Disk Usage Command methods section--------------------------------------------------
+//------------------------------------------------------------------------------------------------------------------------------
+void DiskUsageCommand::execute(){
+
+  char* args[21]; 
+  int argc = _parseCommandLine(m_cmdLine, args);
+
+  if(argc == 1){
+    std::cout << "Total disk usage: " << (sum_directory_files(SmallShell::getInstance().get_shell_pwd().c_str()) / 1024.0) << " KB" << std::endl;
+  }
+  else if(argc == 2){
+
+    int dir_FD = open(args[1], O_RDONLY | O_DIRECTORY);                                       //----------------------------------------------------
+    if (dir_FD < 0) {                                                                         //
+        std::cout << "smash error: du: " << args[1] << " does not exist" << std::endl;        // Check exsitance, other function is recursive.
+        return;                                                                               //
+    }                                                                                         //
+    close(dir_FD);                                                                            //-----------------------------------------------------
+
+    std::cout << "Total disk usage: " << (sum_directory_files(args[1]) / 1024.0) << " KB" << std::endl;
+  }
+  else{
+    std::cout << "smash error: du: too many arguements" << std::endl;
+  }
+}
+
+
+string SmallShell::get_shell_pwd(){
+  char pwd[200];
+  ssize_t len = syscall(SYS_readlink, "/proc/self/cwd", pwd, sizeof(pwd) - 1);
+  if (len != -1) {
+    pwd[len] = '\0';
+  } else {
+    std::cout << "Failed to read /proc/self/cwd\n";
+  }
+  return pwd;
+}
+
+
+int DiskUsageCommand::sum_directory_files(const char* dirPath) {
+
+    int dir_FD = open(dirPath, O_RDONLY | O_DIRECTORY);
+    if (dir_FD < 0) {
+        return 0;
+    }
+
+    char buffer[8192];                                                                    // Buffer to hold directory entries
+    int num_bytes_read;
+
+    int dir_sum = 0;
+
+    while ((num_bytes_read = syscall(SYS_getdents64, dir_FD, buffer, sizeof(buffer))) > 0) { // Read the directory contents into the buffer (SYS_getdents64 is 217 syscall)
+        int current_position = 0;                                                         // Track position in the buffer
+        
+        while (current_position < num_bytes_read) {                                       // Process each directory entry
+            linux_dirent64* dir_entry = (linux_dirent64*)(buffer + current_position);     // Cast to directory entry structure
+            std::string current_entry_name = dir_entry->entry_name;                       // Get the name of the entry
+
+            if (current_entry_name != "." && current_entry_name != "..") {                // Skip "." and ".." entries
+                std::string current_entry_path = string(dirPath) + "/" + current_entry_name;
+                std::cout << current_entry_path << '\n';                                  // Print the full path of the entry
+
+                if (dir_entry->entry_type == DT_DIR) {                                    // If is a sub-directory
+                    std::string sub_dir_path = std::string(dirPath) + "/" + current_entry_name;
+                    
+                    dir_sum += sum_directory_files(sub_dir_path.c_str());                 // Recursive call for subdirectory
+                }
+                else{
+                  struct stat file_stat;
+                  stat(current_entry_path.c_str(), &file_stat);
+                  dir_sum += (file_stat.st_blocks * 512);                                 // Calculation of disk usage
+                }
+            }
+            current_position += dir_entry->record_length;                                 // Move to the next directory entry
+        }
+        return dir_sum;
+    }
+    close(dir_FD);                                                                        // Close the directory
+}
+//------------------------------------------------------------------------------------------------------------------------------
+// ------------------------------------------------------End-of-section---------------------------------------------------------
+//****************************************************************************************************************************//
+//****************************************************************************************************************************//
+// ------------------------------------------Net Info Command methods section---------------------------------------------------
+//------------------------------------------------------------------------------------------------------------------------------
+void NetInfo::execute(){
+
+  char* args[21]; 
+  int argc = _parseCommandLine(m_cmdLine, args);
+
+  if(argc == 1){
+    std::cout << "smash error: netinfo: interface not specified" << std::endl;
+  }
+  else if(argc == 2){
+    if(interface_exist(args[1])){
+      std::cout << "IP address: " << get_IP_for_interface(args[1]) << std::endl;
+      std::cout << "Subnet Mask: " << get_subnet_mask_for_interface(args[1]) << std::endl;
+
+    }
+    else{
+      std::cout << "smash error: netinfo: interface " << args[1] << " does not exist" << std::endl;
+    }
+  }
+  else{
+    // TODO handle with it too
+  }
+
+}
+
+string NetInfo::get_IP_for_interface(string input_interface_name){
+
+    int fd = socket(AF_INET, SOCK_DGRAM, 0);
+    struct ifreq ifr;
+    ifr.ifr_addr.sa_family = AF_INET;
+    strncpy(ifr.ifr_name, input_interface_name.c_str(), IFNAMSIZ-1);
+
+    if (syscall(SYS_ioctl, fd, SIOCGIFADDR, &ifr) < 0) {                    // Use syscall to invoke SYS_ioctl for SIOCGIFADDR
+        close(fd);
+        return "";
+    }
+ 
+    close(fd);
+
+    return inet_ntoa(((struct sockaddr_in *)&ifr.ifr_addr)->sin_addr);
+
+}
+
+string NetInfo::get_subnet_mask_for_interface(string input_interface_name){
+
+    int fd = socket(AF_INET, SOCK_DGRAM, 0);
+    struct ifreq ifr;
+    ifr.ifr_addr.sa_family = AF_INET;
+    strncpy(ifr.ifr_name, input_interface_name.c_str(), IFNAMSIZ-1);
+
+    if (syscall(SYS_ioctl, fd, SIOCGIFNETMASK, &ifr) < 0) {                    // Use syscall to invoke SYS_ioctl for SIOCGIFNETMASK
+        close(fd);
+        return "";
+    }
+ 
+    close(fd);
+
+    return inet_ntoa(((struct sockaddr_in *)&ifr.ifr_addr)->sin_addr);
+
+}
+
+void NetInfo::print_DNS_servers(){
+
+    
+  int fd = open("/etc/resolv.conf", O_RDONLY);    // Open the file using open() system call
+  if (fd == -1) {
+      std::cerr << "Failed to open /etc/resolv.conf\n";
+      return;
+  }
+
+  const size_t bufferSize = 8192;                                       // 8 KB buffer
+  char buffer[bufferSize];
+  ssize_t bytesRead = read(fd, buffer, bufferSize);
+  close(fd);
+
+  string interface_name = "";
+  int num_of_enter = 0;
+  bool interface_read_enable = false;
+
+  for(int i = 0 ; i<bytesRead ; i++){
+    std::cout << buffer[i];
+  }
+  return;
+}
+
+bool NetInfo::interface_exist(string input_interface_name){
+
+  std::string path_to_check = "/proc/net/dev";
+  int fd = open(path_to_check.c_str(), O_RDONLY);
+  if (fd == -1) {
+      perror("open");
+      return false;
+  }
+
+  const size_t bufferSize = 8192;                                       // 8 KB buffer
+  char buffer[bufferSize];
+  ssize_t bytesRead = read(fd, buffer, bufferSize);
+  close(fd);
+
+  string interface_name = "";
+  int num_of_enter = 0;
+  bool interface_read_enable = false;
+
+  for(int i = 0 ; i<bytesRead ; i++){
+
+    if(interface_read_enable && (buffer[i] != ':') && (num_of_enter > 1)){         // Interfaces names are the first word until ':', from the second line
+      interface_name += buffer[i];
+    }
+    else{
+      interface_read_enable = false;                         // If we saw a ':' than first word over
+    }
+
+    if(buffer[i] == '\n'){                                   // Count the word location
+      num_of_enter++;
+    }
+
+    if(buffer[i] == '\n'){
+      if(_trim(interface_name) == input_interface_name){
+        return true;
+      }
+      interface_name = "";                                 // Reset all to start a new line search
+      interface_read_enable = true;
+    }
+  }
+  return false;
+}
+//------------------------------------------------------------------------------------------------------------------------------
+// ------------------------------------------------------End-of-section---------------------------------------------------------
+//****************************************************************************************************************************//
+//****************************************************************************************************************************//
 // ------------------------------------------External Command methods section---------------------------------------------------
 //------------------------------------------------------------------------------------------------------------------------------
 void ExternalCommand::execute(){
@@ -943,7 +1168,7 @@ void SmallShell::print_alias(){
   }
 }
 
-bool SmallShell::alias_is_reserved(const char* alias_name){
+bool SmallShell::alias_is_reserved(const char* alias_name){                   // TODO search manually
   std::string cmd = "command -v " + string(alias_name) + " > /dev/null 2>&1";
   int result = std::system(cmd.c_str());
   return bool(result == 0);
@@ -1038,7 +1263,7 @@ void JobsList::printJobsListForKill(){
 
 
 
-void JobsList::killAllJobs(){
+void JobsList:: killAllJobs(){
   this->removeFinishedJobs();
   int status;
   for (auto it = jobsVector.begin(); it != jobsVector.end(); ++it) {
@@ -1254,7 +1479,7 @@ void RedirectionCommand::execute(){
 
 
 
-  
+
  }
 
 

@@ -3,6 +3,7 @@
 #define SMASH_COMMAND_H_
 
 #include <vector>
+#include <sys/types.h>
 
 #define COMMAND_MAX_LENGTH (200)
 #define COMMAND_MAX_ARGS (20)
@@ -76,20 +77,35 @@ public:
 };
 
 class DiskUsageCommand : public Command {
+private:
+    const char* m_cmdLine;
 public:
-    DiskUsageCommand(const char *cmd_line);
+
+#define DT_DIR     4
+
+struct linux_dirent64 {
+    ino64_t        inode;
+    off64_t        offset;
+    unsigned short record_length;
+    unsigned char  entry_type;
+    char           entry_name[]; // Flexible array
+};
+
+    DiskUsageCommand(const char *cmd_line)  {m_cmdLine = cmd_line;}
 
     virtual ~DiskUsageCommand() {
     }
 
     void execute() override;
+
+    int sum_directory_files(const char* dirPath);
 };
 
 class WhoAmICommand : public Command {
 private:
     const char* m_cmdLine;
 public:
-    WhoAmICommand(const char *cmd_line) {m_cmdLine = cmd_line;};
+    WhoAmICommand(const char *cmd_line) {m_cmdLine = cmd_line;}
 
     virtual ~WhoAmICommand() {
     }
@@ -100,14 +116,25 @@ public:
 };
 
 class NetInfo : public Command {
-    // TODO: Add your data members **BONUS: 10 Points**
+private:
+    const char* m_cmdLine;
 public:
-    NetInfo(const char *cmd_line);
+
+#define IFNAMSIZ      16
+
+    NetInfo(const char *cmd_line) {m_cmdLine = cmd_line;}
 
     virtual ~NetInfo() {
     }
 
     void execute() override;
+
+    bool interface_exist(std::string input_interface_name);
+
+    std::string get_IP_for_interface(std::string input_interface_name);
+
+    std::string get_subnet_mask_for_interface(std::string input_interface_name);
+    
 };
 
 class ChangeDirCommand : public BuiltInCommand {
@@ -381,6 +408,7 @@ public:
     void set_prompt(std::string new_prompt) {this->m_prompt = new_prompt;}
     char** get_last_dir();
     void set_last_dir(std::string plastPwd) {this->m_plastPwd = plastPwd;}
+    std::string get_shell_pwd();
     JobsList* getJobsList();
     void executeCommand(const char *cmd_line);
     void unset_enviorment(std::string varName);
