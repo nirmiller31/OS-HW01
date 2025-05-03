@@ -1003,6 +1003,30 @@ string NetInfo::get_subnet_mask_for_interface(string input_interface_name){
 
 }
 
+void NetInfo::print_DNS_servers(){
+
+    
+  int fd = open("/etc/resolv.conf", O_RDONLY);    // Open the file using open() system call
+  if (fd == -1) {
+      std::cerr << "Failed to open /etc/resolv.conf\n";
+      return;
+  }
+
+  const size_t bufferSize = 8192;                                       // 8 KB buffer
+  char buffer[bufferSize];
+  ssize_t bytesRead = read(fd, buffer, bufferSize);
+  close(fd);
+
+  string interface_name = "";
+  int num_of_enter = 0;
+  bool interface_read_enable = false;
+
+  for(int i = 0 ; i<bytesRead ; i++){
+    std::cout << buffer[i];
+  }
+  return;
+}
+
 bool NetInfo::interface_exist(string input_interface_name){
 
   std::string path_to_check = "/proc/net/dev";
