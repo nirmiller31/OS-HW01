@@ -34,14 +34,11 @@ public:
 };
 
 class ExternalCommand : public Command {
-    const char* m_cmdLine;
+    std::string m_cmdLine;
 public:
-    ExternalCommand(const char *cmd_line) {
-        m_cmdLine = cmd_line;
-    };
+    ExternalCommand(const char *cmd_line) : Command(cmd_line){m_cmdLine = std::string(cmd_line);};
 
-    virtual ~ExternalCommand() {
-    }
+    virtual ~ExternalCommand() {};
 
     void execute() override;
 };
@@ -64,23 +61,25 @@ private:
 };
 
 class PipeCommand : public Command {
-    Command* first_command;
-    Command* second_command;
+    
     
 public:
     PipeCommand(const char *cmd_line);
 
-    virtual ~PipeCommand() {
-    }
+    virtual ~PipeCommand();
 
     void execute() override;
+
+private:
+    Command* m_first_command;
+    Command* m_second_command;
+    bool pipe_stderr;
 };
 
 class DiskUsageCommand : public Command {
 private:
     const char* m_cmdLine;
 public:
-
 #define DT_DIR     4
 
 struct linux_dirent64 {

@@ -85,7 +85,7 @@ void _removeBackgroundSign(char *cmd_line) {
     // truncate the command line string up to the last non-space character
     cmd_line[str.find_last_not_of(WHITESPACE, idx) + 1] = 0;
 }
-// TODO: Add your implementation for classes in Commands.h 
+
 
 bool _isSpecialExternalComamnd(const char *cmd_line) {
     int cmd_length = strlen(cmd_line);
@@ -147,7 +147,6 @@ BuiltInCommand::~BuiltInCommand() {}
 * Creates and returns a pointer to Command class which matches the given command line (cmd_line)
 */
 Command *SmallShell::CreateCommand(const char *cmd_line) {
-
   string cmd_s = _trim(string(cmd_line));
   string firstWord = cmd_s.substr(0, cmd_s.find_first_of(" \n"));
 
@@ -159,6 +158,9 @@ Command *SmallShell::CreateCommand(const char *cmd_line) {
   }
   if(_isRediractionCommand(cmd_line)){
     return new RedirectionCommand(cmd_line);
+  }
+  else if(_isPipeCommand(cmd_line)){
+    return new PipeCommand(cmd_line);
   }
   else if (firstWord.compare("chprompt") == 0) {
     return new ChPromtCommand(cmd_line);
@@ -1145,22 +1147,20 @@ bool NetInfo::interface_exist(string input_interface_name){
 // ------------------------------------------External Command methods section---------------------------------------------------
 //------------------------------------------------------------------------------------------------------------------------------
 void ExternalCommand::execute(){
-
   char* args[21];                                               // To hold the cmd + [MAX]20 arguements
-  
-  char* shorterCmd = new char[strlen(m_cmdLine) + 1];
-  strcpy(shorterCmd, m_cmdLine);                                // Create a shorter (pottentially) modifiable version
+  char* shorterCmd = new char[m_cmdLine.size() + 1];
+  strcpy(shorterCmd, m_cmdLine.c_str());                                // Create a shorter (pottentially) modifiable version
 
-  bool background_command = _isBackgroundComamnd(m_cmdLine);    // Check if it is a background command (if "&" in the end)
+  bool background_command = _isBackgroundComamnd(m_cmdLine.c_str());    // Check if it is a background command (if "&" in the end)
   if(background_command){_removeBackgroundSign(shorterCmd);}    // Remove the "&" from shortherCmd, we don't need it anymore
   _parseCommandLine(shorterCmd, args);                          // Take the version without the "&" and divide it to an array
-
+  //for (int i = 0 ; i < 21 ; i++){
+   // std::cout << "Args["<< i << "]: " << args[i] <<std::endl; 
+ //}
   pid_t pid = fork();                                           // Create a child process
 
   if(pid == 0){                                                 // New child process code
-
     if(_isSpecialExternalComamnd(shorterCmd)) {
-
       char* bash_exec[] = {"bash", "-c", shorterCmd, nullptr};  // Create an array to run: "bash -c "<original input>""
       if (execvp("bash", bash_exec) == -1){
         perror("execvp failed");
@@ -1181,7 +1181,7 @@ void ExternalCommand::execute(){
     }
   }
   else{                                                         // Failed fork, may not need to print, but know it is here TODO
-    std::cout << "Fork failed!" << std::endl;
+    std::cout << "fork failed" << std::endl;
     return;
   }
 }
@@ -1515,19 +1515,136 @@ void RedirectionCommand::execute(){
 // ------------------------------------------Pipe Command methods section------------------------------------------------
 //------------------------------------------------------------------------------------------------------------------------------
 
-//  PipeCommand::PipeCommand(const char *cmd_line) : Command(cmd_line) {
+PipeCommand::PipeCommand(const char *cmd_line) : Command(cmd_line) {
+  std::string str_cmd_line(cmd_line);
+  //maybe need to add ignore background like redirection command
+  
+  size_t index;
+
+  if((index = str_cmd_line.find("|&")) != std::string::npos){
+    this->pipe_stderr = true;
+  }  
+  else{
+    index = str_cmd_line.find("|");
+    this->pipe_stderr = false;
+  }
+
+  std::string first_cmd = _trim(str_cmd_line.substr(0, index));
+  std::string second_cmd = _trim(str_cmd_line.substr(index + (pipe_stderr ? 2 : 1)));
+  
+  m_first_command = SmallShell::getInstance().CreateCommand(first_cmd.c_str());
+  m_second_command = SmallShell::getInstance().CreateCommand(second_cmd.c_str());
+ }
+
+
+ PipeCommand::~PipeCommand(){
+  delete m_first_command;
+  delete m_second_command;
+ }
 
 
 
 
 
-//  }
+void PipeCommand::execute(){
+  int pipe_read_write_fds[2];
+  if(pipe(pipe_read_write_fds) == -1){
+    perror("smash error: pipe failed");
+    return;
+  }
+  int old_stdout_fd = dup(STDOUT_FILENO);
+  int old_stdin_fd = dup(STDIN_FILENO);
+  int old_stderr_fd = dup(STDERR_FILENO);
 
+  if(old_stdout_fd == -1 || old_stdin_fd == -1 || old_stderr_fd == -1){
+    perror("smash error: dup failed");
+    if(old_stdout_fd != -1) close(old_stdout_fd);
+    if(old_stdin_fd != -1) close(old_stdin_fd);
+    if(old_stderr_fd != -1) close(old_stderr_fd);
+    return;
+    }
 
+  pid_t pid_first = fork();
 
+  if(pid_first == -1){
+    perror("smash error: fork failed");
+    return;
+  }
+    
+  if(pid_first == 0){ 
+  //first command process
+    setpgrp();
+    close(pipe_read_write_fds[0]); //closing first command read fd
 
+    if(dup2(pipe_read_write_fds[1],STDOUT_FILENO) == -1){
+      perror("smash error: dup2 failed");
+      close(pipe_read_write_fds[1]);
+      exit(1);
+    }
 
+    if(pipe_stderr){
+      if(dup2(pipe_read_write_fds[1],STDERR_FILENO) == -1){
+        perror("smash error: dup2 failed");
+        close(pipe_read_write_fds[1]);
+        exit(1);
+      }
+    }
+    close(pipe_read_write_fds[1]);
+    std::cout << "PipeExecute2 "<< std::endl;
+    m_first_command->execute();
+    std::cout << "PipeExecute3 "<< std::endl;
+    exit(0);
+  }
 
+  else if(pid_first > 0){ 
+    //parent process
+    pid_t pid_second = fork();
+
+    if(pid_second == -1){
+      perror("smash error: fork failed");
+      return;
+    }
+
+    if(pid_second == 0){ 
+    //second command process 
+      setpgrp();
+      close(pipe_read_write_fds[1]); //closing second command write fd 
+
+      if(dup2(pipe_read_write_fds[0],STDIN_FILENO) == -1){
+        perror("smash error: dup2 failed");
+        close(pipe_read_write_fds[0]);
+        exit(1);
+      }
+
+      close(pipe_read_write_fds[0]);
+      m_second_command->execute();
+      exit(0);
+    }
+
+    //parent process
+    close(pipe_read_write_fds[0]);
+    close(pipe_read_write_fds[1]);
+
+    waitpid(pid_first, nullptr, 0);
+    waitpid(pid_second, nullptr, 0);
+    
+    if(dup2(old_stdout_fd,STDOUT_FILENO) == -1 || dup2(old_stdin_fd,STDIN_FILENO) == -1){
+      perror("smash error: dup2 failed");
+      return;
+    }
+
+    if(pipe_stderr){
+      if(dup2(old_stderr_fd,STDERR_FILENO) == -1){
+        perror("smash error: dup2 failed");
+        return;
+      }
+    }
+    close(old_stdout_fd);
+    close(old_stdin_fd);
+    close(old_stderr_fd);
+  }
+
+}
 
 
 //------------------------------------------------------------------------------------------------------------------------------
