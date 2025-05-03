@@ -97,6 +97,33 @@ bool _isSpecialExternalComamnd(const char *cmd_line) {
     return false;
 }
 
+
+bool _isRediractionCommand(const char *cmd_line){
+  std::string str_cmd_line(cmd_line);
+  
+  if(((str_cmd_line.find(">>")) != std::string::npos) || ((str_cmd_line.find(">")) != std::string::npos)){
+    return true;
+  }  
+  else{
+    return false;
+  }
+}
+  
+
+
+bool _isPipeCommand(const char *cmd_line){
+  std::string str_cmd_line(cmd_line);
+  
+  if((str_cmd_line.find("|")) != std::string::npos){
+    return true;
+  }  
+  else{
+    return false;
+  }
+}
+  
+
+
 SmallShell::SmallShell() {
       this->m_prompt = "smash";
       this->m_plastPwd = "";
@@ -130,8 +157,10 @@ Command *SmallShell::CreateCommand(const char *cmd_line) {
     cmd_s = _trim(string(cmd_line));                                                // Repeat the same process for the alias
     firstWord = cmd_s.substr(0, cmd_s.find_first_of(" \n"));
   }
-
-  if (firstWord.compare("chprompt") == 0) {
+  if(_isRediractionCommand(cmd_line)){
+    return new RedirectionCommand(cmd_line);
+  }
+  else if (firstWord.compare("chprompt") == 0) {
     return new ChPromtCommand(cmd_line);
   }
   else if (firstWord.compare("showpid") == 0) {
@@ -168,17 +197,17 @@ Command *SmallShell::CreateCommand(const char *cmd_line) {
     return new WatchProcCommand(cmd_line);
   }
 
-
   else if (firstWord.compare("whoami") == 0) {
     return new WhoAmICommand(cmd_line);
   }
   else if (firstWord.compare("du") == 0) {
     return new DiskUsageCommand(cmd_line);
   }
-else if (firstWord.compare("netinfo") == 0) {
+  else if (firstWord.compare("netinfo") == 0) {
     return new NetInfo(cmd_line);
   }
 
+>>>>>>> origin/main
   else {
     return new ExternalCommand(cmd_line);
   }
@@ -1403,3 +1432,105 @@ void ForegroundCommand::execute(){
   }
 }
 
+
+
+//------------------------------------------------------------------------------------------------------------------------------
+// ------------------------------------------------------End-of-section---------------------------------------------------------
+//****************************************************************************************************************************//
+//****************************************************************************************************************************//
+// ------------------------------------------Redirection Command methods section------------------------------------------------
+//------------------------------------------------------------------------------------------------------------------------------
+
+RedirectionCommand::RedirectionCommand(const char *cmd_line) : Command(cmd_line){
+
+  std::string str_cmd_line(cmd_line);
+
+  if(_isBackgroundComamnd(cmd_line)){
+    char* temp_cmd = new char[std::strlen(cmd_line) + 1]; // + 1 for null terminator
+    std::strcpy(temp_cmd, cmd_line);
+    _removeBackgroundSign(temp_cmd);
+    str_cmd_line = std::string(temp_cmd);
+    delete[] temp_cmd;
+  }
+
+  size_t index;
+
+  if((index = str_cmd_line.find(">>")) != std::string::npos){
+    this->append_to_end = true;
+  }  
+  else{
+    index = str_cmd_line.find(">");
+    this->append_to_end = false;
+  }
+  std::string command = str_cmd_line.substr(0, index);
+  std::string file = str_cmd_line.substr(index + (append_to_end ? 2 : 1));
+
+  m_file_name = _trim(file);
+
+  m_command = SmallShell::getInstance().CreateCommand(command.c_str());
+}
+  
+RedirectionCommand::~RedirectionCommand(){
+  delete m_command;
+}
+
+
+
+void RedirectionCommand::execute(){ 
+  int old_stdout_fd = dup(STDOUT_FILENO);
+  if(old_stdout_fd == -1){
+    perror("smash error: dup failed");
+    return;
+  }
+
+
+  int file_fd = open(m_file_name.c_str(), O_WRONLY | O_CREAT | (append_to_end ? O_APPEND : O_TRUNC),0655);
+  if(file_fd == -1){
+    perror("smash error: open failed");
+    close(old_stdout_fd); 
+    return;
+  }
+
+  if(dup2(file_fd, STDOUT_FILENO) == -1){
+    perror("smash error: dup2 failed");
+    close(file_fd);
+    return;
+  }
+  close(file_fd);
+
+  m_command->execute();
+
+  if(dup2(old_stdout_fd, STDOUT_FILENO) == -1){
+    perror("smash error: dup2 failed");
+    close(old_stdout_fd);
+    return;
+  }
+  close(old_stdout_fd);
+}
+
+
+//------------------------------------------------------------------------------------------------------------------------------
+// ------------------------------------------------------End-of-section---------------------------------------------------------
+//****************************************************************************************************************************//
+//****************************************************************************************************************************//
+// ------------------------------------------Pipe Command methods section------------------------------------------------
+//------------------------------------------------------------------------------------------------------------------------------
+
+ PipeCommand::PipeCommand(const char *cmd_line) : Command(cmd_line) {
+
+
+
+
+
+ }
+
+
+
+
+
+
+
+
+//------------------------------------------------------------------------------------------------------------------------------
+// ------------------------------------------------------End-of-section---------------------------------------------------------
+//****************************************************************************************************************************//
