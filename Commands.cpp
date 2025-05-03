@@ -170,6 +170,9 @@ Command *SmallShell::CreateCommand(const char *cmd_line) {
   else if (firstWord.compare("du") == 0) {
     return new DiskUsageCommand(cmd_line);
   }
+else if (firstWord.compare("netinfo") == 0) {
+    return new NetInfo(cmd_line);
+  }
 
   else {
     return new ExternalCommand(cmd_line);
@@ -944,21 +947,26 @@ void NetInfo::execute(){
     std::cout << "smash error: netinfo: interface not specified" << std::endl;
   }
   else if(argc == 2){
+    if(interface_exist(args[1])){
 
+    }
+    else{
+      std::cout << "smash error: netinfo: interface " << args[1] << " does not exist" << std::endl;
+    }
   }
   else{
-
+    // TODO handle with it too
   }
 
 }
 
-bool NetInfo::interface_exist(string interface_name){
+bool NetInfo::interface_exist(string input_interface_name){
 
-  std::string path_to_check = "/sys/class/net";
+  std::string path_to_check = "/proc/net/dev";
   int fd = open(path_to_check.c_str(), O_RDONLY);
   if (fd == -1) {
       perror("open");
-      return;
+      return false;
   }
 
   const size_t bufferSize = 8192;                                       // 8 KB buffer
@@ -982,19 +990,16 @@ bool NetInfo::interface_exist(string interface_name){
     if(buffer[i] == '\n'){                                   // Count the word location
       num_of_enter++;
     }
-    if(num_of_enter > 1){
-      interface_read_enable = true; 
-    }
 
     if(buffer[i] == '\n'){
-
+      if(_trim(interface_name) == input_interface_name){
+        return true;
+      }
       interface_name = "";                                 // Reset all to start a new line search
       interface_read_enable = true;
-
-      std::cout << "the interface name is: " << interface_name << std::endl;
     }
   }
-
+  return false;
 }
 //------------------------------------------------------------------------------------------------------------------------------
 // ------------------------------------------------------End-of-section---------------------------------------------------------
