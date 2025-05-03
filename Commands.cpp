@@ -865,7 +865,7 @@ void DiskUsageCommand::execute(){
     int dir_FD = open(args[1], O_RDONLY | O_DIRECTORY);                                       //----------------------------------------------------
     if (dir_FD < 0) {                                                                         //
         std::cout << "smash error: du: " << args[1] << " does not exist" << std::endl;        // Check exsitance, other function is recursive.
-        return;                                                                             //
+        return;                                                                               //
     }                                                                                         //
     close(dir_FD);                                                                            //-----------------------------------------------------
 
@@ -881,10 +881,9 @@ string SmallShell::get_shell_pwd(){
   char pwd[200];
   ssize_t len = syscall(SYS_readlink, "/proc/self/cwd", pwd, sizeof(pwd) - 1);
   if (len != -1) {
-    pwd[len] = '\0';  // Null-terminate the string
-      std::cout << "Current directory: " << string(pwd) << '\n';
+    pwd[len] = '\0';
   } else {
-      std::cerr << "Failed to read /proc/self/cwd\n";
+    std::cout << "Failed to read /proc/self/cwd\n";
   }
   return pwd;
 }
@@ -929,6 +928,73 @@ int DiskUsageCommand::sum_directory_files(const char* dirPath) {
         return dir_sum;
     }
     close(dir_FD);                                                                        // Close the directory
+}
+//------------------------------------------------------------------------------------------------------------------------------
+// ------------------------------------------------------End-of-section---------------------------------------------------------
+//****************************************************************************************************************************//
+//****************************************************************************************************************************//
+// ------------------------------------------Net Info Command methods section---------------------------------------------------
+//------------------------------------------------------------------------------------------------------------------------------
+void NetInfo::execute(){
+
+  char* args[21]; 
+  int argc = _parseCommandLine(m_cmdLine, args);
+
+  if(argc == 1){
+    std::cout << "smash error: netinfo: interface not specified" << std::endl;
+  }
+  else if(argc == 2){
+
+  }
+  else{
+
+  }
+
+}
+
+bool NetInfo::interface_exist(string interface_name){
+
+  std::string path_to_check = "/sys/class/net";
+  int fd = open(path_to_check.c_str(), O_RDONLY);
+  if (fd == -1) {
+      perror("open");
+      return;
+  }
+
+  const size_t bufferSize = 8192;                                       // 8 KB buffer
+  char buffer[bufferSize];
+  ssize_t bytesRead = read(fd, buffer, bufferSize);
+  close(fd);
+
+  string interface_name = "";
+  int num_of_enter = 0;
+  bool interface_read_enable = false;
+
+  for(int i = 0 ; i<bytesRead ; i++){
+
+    if(interface_read_enable && (buffer[i] != ':') && (num_of_enter > 1)){         // Interfaces names are the first word until ':', from the second line
+      interface_name += buffer[i];
+    }
+    else{
+      interface_read_enable = false;                         // If we saw a ':' than first word over
+    }
+
+    if(buffer[i] == '\n'){                                   // Count the word location
+      num_of_enter++;
+    }
+    if(num_of_enter > 1){
+      interface_read_enable = true; 
+    }
+
+    if(buffer[i] == '\n'){
+
+      interface_name = "";                                 // Reset all to start a new line search
+      interface_read_enable = true;
+
+      std::cout << "the interface name is: " << interface_name << std::endl;
+    }
+  }
+
 }
 //------------------------------------------------------------------------------------------------------------------------------
 // ------------------------------------------------------End-of-section---------------------------------------------------------

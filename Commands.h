@@ -109,14 +109,17 @@ public:
 };
 
 class NetInfo : public Command {
-    // TODO: Add your data members **BONUS: 10 Points**
+private:
+    const char* m_cmdLine;
 public:
-    NetInfo(const char *cmd_line);
+    NetInfo(const char *cmd_line) {m_cmdLine = cmd_line;}
 
     virtual ~NetInfo() {
     }
 
     void execute() override;
+
+    bool interface_exist(std::string interface_name);
 };
 
 class ChangeDirCommand : public BuiltInCommand {
