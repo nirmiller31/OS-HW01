@@ -120,7 +120,7 @@ private:
     const char* m_cmdLine;
 public:
 
-#define IFNAMSIZ      16
+// #define IFNAMSIZ      16
 
     NetInfo(const char *cmd_line) {m_cmdLine = cmd_line;}
 

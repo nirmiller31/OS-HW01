@@ -207,7 +207,6 @@ Command *SmallShell::CreateCommand(const char *cmd_line) {
     return new NetInfo(cmd_line);
   }
 
->>>>>>> origin/main
   else {
     return new ExternalCommand(cmd_line);
   }
@@ -1516,13 +1515,13 @@ void RedirectionCommand::execute(){
 // ------------------------------------------Pipe Command methods section------------------------------------------------
 //------------------------------------------------------------------------------------------------------------------------------
 
- PipeCommand::PipeCommand(const char *cmd_line) : Command(cmd_line) {
+//  PipeCommand::PipeCommand(const char *cmd_line) : Command(cmd_line) {
 
 
 
 
 
- }
+//  }
 
 
 
