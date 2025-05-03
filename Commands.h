@@ -112,6 +112,9 @@ class NetInfo : public Command {
 private:
     const char* m_cmdLine;
 public:
+
+#define IFNAMSIZ      16
+
     NetInfo(const char *cmd_line) {m_cmdLine = cmd_line;}
 
     virtual ~NetInfo() {
@@ -121,7 +124,10 @@ public:
 
     bool interface_exist(std::string input_interface_name);
 
-    int get_IP_for_interface(std::string input_interface_name);
+    std::string get_IP_for_interface(std::string input_interface_name);
+
+    std::string get_subnet_mask_for_interface(std::string input_interface_name);
+    
 };
 
 class ChangeDirCommand : public BuiltInCommand {

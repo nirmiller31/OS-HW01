@@ -4,9 +4,13 @@
 #include <vector>
 #include <sstream>
 #include <sys/wait.h>
+#include <sys/socket.h>
 #include <sys/syscall.h>
 #include <sys/ioctl.h>
 #include <sys/stat.h>
+#include <net/if.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
 #include <iomanip>
 #include "Commands.h"
 #include "signals.h"
@@ -949,7 +953,8 @@ void NetInfo::execute(){
   }
   else if(argc == 2){
     if(interface_exist(args[1])){
-      get_IP_for_interface(args[1]);
+      std::cout << "IP address: " << get_IP_for_interface(args[1]) << std::endl;
+      std::cout << "Subnet Mask: " << get_subnet_mask_for_interface(args[1]) << std::endl;
 
     }
     else{
@@ -962,29 +967,40 @@ void NetInfo::execute(){
 
 }
 
-int NetInfo::get_IP_for_interface(string input_interface_name){
+string NetInfo::get_IP_for_interface(string input_interface_name){
 
-  int fd = syscall(SYS_socket, AF_INET, SOCK_DGRAM, 0);
-    if (fd < 0) {
-        perror("socket");
-        return 1;
-    }
+    int fd = socket(AF_INET, SOCK_DGRAM, 0);
+    struct ifreq ifr;
+    ifr.ifr_addr.sa_family = AF_INET;
+    strncpy(ifr.ifr_name, input_interface_name.c_str(), IFNAMSIZ-1);
 
-    struct ifreq ifr {};
-    strncpy(ifr.ifr_name, input_interface_name.c_str(), IFNAMSIZ - 1);
-
-    // Use syscall to invoke SYS_ioctl for SIOCGIFADDR
-    if (syscall(SYS_ioctl, fd, SIOCGIFADDR, &ifr) < 0) {
-        perror("ioctl");
+    if (syscall(SYS_ioctl, fd, SIOCGIFADDR, &ifr) < 0) {                    // Use syscall to invoke SYS_ioctl for SIOCGIFADDR
         close(fd);
-        return 1;
+        return "";
     }
-
-    // Extract IP address
-    struct sockaddr_in *ipaddr = (struct sockaddr_in *)&ifr.ifr_addr;
-    std::cout << "IP Address: " << &ifr.ifr_addr << std::endl;
-
+ 
     close(fd);
+
+    return inet_ntoa(((struct sockaddr_in *)&ifr.ifr_addr)->sin_addr);
+
+}
+
+string NetInfo::get_subnet_mask_for_interface(string input_interface_name){
+
+    int fd = socket(AF_INET, SOCK_DGRAM, 0);
+    struct ifreq ifr;
+    ifr.ifr_addr.sa_family = AF_INET;
+    strncpy(ifr.ifr_name, input_interface_name.c_str(), IFNAMSIZ-1);
+
+    if (syscall(SYS_ioctl, fd, SIOCGIFNETMASK, &ifr) < 0) {                    // Use syscall to invoke SYS_ioctl for SIOCGIFNETMASK
+        close(fd);
+        return "";
+    }
+ 
+    close(fd);
+
+    return inet_ntoa(((struct sockaddr_in *)&ifr.ifr_addr)->sin_addr);
+
 }
 
 bool NetInfo::interface_exist(string input_interface_name){
