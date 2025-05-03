@@ -47,7 +47,7 @@ public:
 
 
 class RedirectionCommand : public Command {
-    // TODO: Add your data members
+    
 public:
     explicit RedirectionCommand(const char *cmd_line);
 
@@ -55,6 +55,12 @@ public:
     }
 
     void execute() override;
+
+private:
+    Command* m_command;
+    std::string m_file_name;
+    bool append_to_end;
+
 };
 
 class PipeCommand : public Command {

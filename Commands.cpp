@@ -90,6 +90,33 @@ bool _isSpecialExternalComamnd(const char *cmd_line) {
     return false;
 }
 
+
+bool _isRediractionCommand(const char *cmd_line){
+  std::string str_cmd_line(cmd_line);
+  
+  if(((str_cmd_line.find(">>")) != std::string::npos) || ((str_cmd_line.find(">")) != std::string::npos)){
+    return true;
+  }  
+  else{
+    return false;
+  }
+}
+  
+
+
+bool _isPipeCommand(const char *cmd_line){
+  std::string str_cmd_line(cmd_line);
+  
+  if((str_cmd_line.find("|")) != std::string::npos){
+    return true;
+  }  
+  else{
+    return false;
+  }
+}
+  
+
+
 SmallShell::SmallShell() {
       this->m_prompt = "smash";
       this->m_plastPwd = "";
@@ -116,7 +143,6 @@ Command *SmallShell::CreateCommand(const char *cmd_line) {
 
   string cmd_s = _trim(string(cmd_line));
   string firstWord = cmd_s.substr(0, cmd_s.find_first_of(" \n"));
-  string seconedWord = cmd_s.substr(0, cmd_s.find_first_of(" \n"));
 
   if(SmallShell::getInstance().alias_exist(firstWord.c_str())){                     // Check a case of an alias
     string alias_name = firstWord.c_str();                                          // If exist, than it is alias's name
@@ -125,8 +151,10 @@ Command *SmallShell::CreateCommand(const char *cmd_line) {
     firstWord = cmd_s.substr(0, cmd_s.find_first_of(" \n"));
     
   }
-
-  if (firstWord.compare("chprompt") == 0) {
+  if(_isRediractionCommand(cmd_line)){
+    return new RedirectionCommand(cmd_line);
+  }
+  else if (firstWord.compare("chprompt") == 0) {
     return new ChPromtCommand(cmd_line);
   }
   else if (firstWord.compare("showpid") == 0) {
@@ -164,13 +192,8 @@ Command *SmallShell::CreateCommand(const char *cmd_line) {
   }
 
   else if (firstWord.compare("whoami") == 0) {
-    return new RedirectionCommand(cmd_line);
-  }
-
-  else if (firstWord.compare("whoami") == 0) {
     return new WhoAmICommand(cmd_line);
   }
-
   else {
     return new ExternalCommand(cmd_line);
   }
@@ -1142,3 +1165,48 @@ void ForegroundCommand::execute(){
   }
 }
 
+
+
+//------------------------------------------------------------------------------------------------------------------------------
+// ------------------------------------------------------End-of-section---------------------------------------------------------
+//****************************************************************************************************************************//
+//****************************************************************************************************************************//
+// ------------------------------------------Redirection Command methods section------------------------------------------------
+//------------------------------------------------------------------------------------------------------------------------------
+
+RedirectionCommand::RedirectionCommand(const char *cmd_line) : Command(cmd_line){
+  std::string str_cmd_line(cmd_line);
+  size_t index;
+
+  if((index = str_cmd_line.find(">>")) != std::string::npos){
+    this->append_to_end = true;
+  }  
+  else{
+    index = str_cmd_line.find(">");
+    this->append_to_end = false;
+  }
+  std::string command = str_cmd_line.substr(0, index);
+  std::string file = str_cmd_line.substr(index + (append_to_end ? 2 : 1));
+
+  m_file_name = _trim(file);
+
+  m_command = SmallShell::getInstance().CreateCommand(command.c_str());
+}
+  
+RedirectionCommand::~RedirectionCommand(){
+  delete m_command;
+}
+
+
+
+void RedirectionCommand::execute(){
+  int old_std_out = dup(STDOUT_FILENO);
+  if(old_std_out == -1){
+    perror("dup failed");
+  }
+
+  int fd;
+  //contnuie code here
+
+
+}
