@@ -51,8 +51,7 @@ class RedirectionCommand : public Command {
 public:
     explicit RedirectionCommand(const char *cmd_line);
 
-    virtual ~RedirectionCommand() {
-    }
+    virtual ~RedirectionCommand();
 
     void execute() override;
 
@@ -64,7 +63,9 @@ private:
 };
 
 class PipeCommand : public Command {
-    // TODO: Add your data members
+    Command* first_command;
+    Command* second_command;
+    
 public:
     PipeCommand(const char *cmd_line);
 
