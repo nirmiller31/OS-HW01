@@ -5,6 +5,7 @@
 #include <sstream>
 #include <sys/wait.h>
 #include <sys/syscall.h>
+#include <sys/ioctl.h>
 #include <sys/stat.h>
 #include <iomanip>
 #include "Commands.h"
@@ -948,6 +949,7 @@ void NetInfo::execute(){
   }
   else if(argc == 2){
     if(interface_exist(args[1])){
+      get_IP_for_interface(args[1]);
 
     }
     else{
@@ -958,6 +960,31 @@ void NetInfo::execute(){
     // TODO handle with it too
   }
 
+}
+
+int NetInfo::get_IP_for_interface(string input_interface_name){
+
+  int fd = syscall(SYS_socket, AF_INET, SOCK_DGRAM, 0);
+    if (fd < 0) {
+        perror("socket");
+        return 1;
+    }
+
+    struct ifreq ifr {};
+    strncpy(ifr.ifr_name, input_interface_name.c_str(), IFNAMSIZ - 1);
+
+    // Use syscall to invoke SYS_ioctl for SIOCGIFADDR
+    if (syscall(SYS_ioctl, fd, SIOCGIFADDR, &ifr) < 0) {
+        perror("ioctl");
+        close(fd);
+        return 1;
+    }
+
+    // Extract IP address
+    struct sockaddr_in *ipaddr = (struct sockaddr_in *)&ifr.ifr_addr;
+    std::cout << "IP Address: " << &ifr.ifr_addr << std::endl;
+
+    close(fd);
 }
 
 bool NetInfo::interface_exist(string input_interface_name){
@@ -1072,7 +1099,7 @@ void SmallShell::print_alias(){
   }
 }
 
-bool SmallShell::alias_is_reserved(const char* alias_name){
+bool SmallShell::alias_is_reserved(const char* alias_name){                   // TODO search manually
   std::string cmd = "command -v " + string(alias_name) + " > /dev/null 2>&1";
   int result = std::system(cmd.c_str());
   return bool(result == 0);

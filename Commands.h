@@ -119,7 +119,9 @@ public:
 
     void execute() override;
 
-    bool interface_exist(std::string interface_name);
+    bool interface_exist(std::string input_interface_name);
+
+    int get_IP_for_interface(std::string input_interface_name);
 };
 
 class ChangeDirCommand : public BuiltInCommand {
