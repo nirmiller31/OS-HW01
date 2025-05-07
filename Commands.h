@@ -358,7 +358,7 @@ class JobsList {
     
         void addJob(Command* cmd, pid_t pid , bool isStopped = false);
 
-        // void set_stopped() {}
+        bool job_exist(int job_ID_to_look);
     
         void printJobsList();
     
