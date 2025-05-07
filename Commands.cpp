@@ -130,6 +130,7 @@ SmallShell::SmallShell() {
       this->m_lastCmdLine = "";
       this->m_jobsList = new JobsList();
       this->m_pid = getpid();
+      this->m_fg_pid = m_pid;
 }
 
 SmallShell::~SmallShell() {
@@ -156,7 +157,10 @@ Command *SmallShell::CreateCommand(const char *cmd_line) {
     cmd_s = _trim(string(cmd_line));                                                // Repeat the same process for the alias
     firstWord = cmd_s.substr(0, cmd_s.find_first_of(" \n"));
   }
-  if(_isRediractionCommand(cmd_line)){
+  if (firstWord.compare("alias") == 0) {
+    return new AliasCommand(cmd_line);
+  }
+  else if(_isRediractionCommand(cmd_line)){
     return new RedirectionCommand(cmd_line);
   }
   else if(_isPipeCommand(cmd_line)){
@@ -185,9 +189,6 @@ Command *SmallShell::CreateCommand(const char *cmd_line) {
   }
   else if (firstWord.compare("kill") == 0) {
     return new KillCommand(cmd_line, getJobsList());
-  }
-  else if (firstWord.compare("alias") == 0) {
-    return new AliasCommand(cmd_line);
   }
   else if (firstWord.compare("unalias") == 0) {
     return new UnAliasCommand(cmd_line);
@@ -534,7 +535,7 @@ bool UnSetEnvCommand::is_environment_variable(const char* varName) {
   std::string path_to_check = "/proc/" + to_string(SmallShell::getInstance().get_pid()) + "/environ";
   int fd = open(path_to_check.c_str(), O_RDONLY);
   if (fd == -1) {
-      perror("open");
+      perror("smash error: open failed");
       return false;
   }
 
@@ -574,7 +575,7 @@ unsigned long long WatchProcCommand::getProcCpuTime(pid_t pid){ //!!!!!!check if
   std::string stat_path = "/proc/" + to_string(pid) + "/stat";
   int fd = open(stat_path.c_str(), O_RDONLY );
   if(fd == -1){
-    perror("open"); //check this might need to change it
+    perror("smash error: open failed"); //check this might need to change it
     return 0;
   }
 
@@ -582,7 +583,7 @@ unsigned long long WatchProcCommand::getProcCpuTime(pid_t pid){ //!!!!!!check if
   ssize_t bytesRead = read(fd, buffer, sizeof(buffer) - 1);
   close(fd);
   if (bytesRead <=0){
-    perror("read"); //check this might need to change it
+    perror("smash error: read failed"); //check this might need to change it
     return 0;
   }
 
@@ -626,7 +627,7 @@ unsigned long long WatchProcCommand::getProcCpuTime(pid_t pid){ //!!!!!!check if
 unsigned long long WatchProcCommand::getTotalCpuTime(){
   int fd = open("/proc/stat", O_RDONLY );
   if(fd == -1){
-    perror("open"); //check this might need to change it
+    perror("smash error: open failed"); //check this might need to change it
     return 0;
   }
 
@@ -634,7 +635,7 @@ unsigned long long WatchProcCommand::getTotalCpuTime(){
   ssize_t bytesRead = read(fd, buffer, sizeof(buffer) - 1);
   close(fd);
   if (bytesRead <=0){
-    perror("read"); //check this might need to change it
+    perror("smash error: read failed"); //check this might need to change it
     return 0;
   }
   buffer[bytesRead] = '\0';
@@ -704,7 +705,7 @@ std::string WatchProcCommand::getMemUsage(pid_t pid){
   std::string status_path = "/proc/" + to_string(pid) + "/status";
     int fd = open(status_path.c_str(), O_RDONLY );
     if(fd == -1){
-      perror("open"); //check this might need to change it
+      perror("smash error: open failed"); //check this might need to change it
       return "";
     }
 
@@ -712,7 +713,7 @@ std::string WatchProcCommand::getMemUsage(pid_t pid){
     ssize_t bytesRead = read(fd, buffer, sizeof(buffer) - 1);
     close(fd);
     if (bytesRead <=0){
-      perror("read"); //check this might need to change it
+      perror("smash error: read failed"); 
       return "";
     }
   buffer[bytesRead] = '\0';
@@ -781,7 +782,7 @@ void WhoAmICommand::get_user_and_path_by_uid(uid_t shell_uid, string result[2]){
   std::string path_to_check = "/etc/passwd";
   int fd = open(path_to_check.c_str(), O_RDONLY);
   if (fd == -1) {
-      perror("open");
+      perror("smash error: open failed");
       return;
   }
 
@@ -855,7 +856,7 @@ uid_t SmallShell::get_shell_uid(){
   std::string path_to_check = "/proc/" + to_string(SmallShell::getInstance().get_pid()) + "/status";
   int fd = open(path_to_check.c_str(), O_RDONLY);
   if (fd == -1) {
-      perror("open");
+      perror("smash error: open failed");
       return false;
   }
 
@@ -1101,7 +1102,7 @@ bool NetInfo::interface_exist(string input_interface_name){
   std::string path_to_check = "/proc/net/dev";
   int fd = open(path_to_check.c_str(), O_RDONLY);
   if (fd == -1) {
-      perror("open");
+      perror("smash error: open failed");
       return false;
   }
 
@@ -1155,21 +1156,24 @@ void ExternalCommand::execute(){
    // std::cout << "Args["<< i << "]: " << args[i] <<std::endl; 
  //}
   pid_t pid = fork();                                           // Create a child process
-
+  
   if(pid == 0){                                                 // New child process code
+    setpgrp();                                             
     if(_isSpecialExternalComamnd(shorterCmd)) {
       char* bash_exec[] = {"bash", "-c", shorterCmd, nullptr};  // Create an array to run: "bash -c "<original input>""
       if (execvp("bash", bash_exec) == -1){
-        perror("execvp failed");
+        perror("smash error: execvp failed");
       }
     }
     if (execvp(args[0], args) == -1) {                          // Search for the command in PATH env, with our arguments
-      perror("execvp failed");
+      perror("smash error: execvp failed");
     }
   }
   else if(pid >0){                                              // Parent process code
     if(!background_command){
+      SmallShell::getInstance().set_fg_pid(pid);
       wait(nullptr);
+      SmallShell::getInstance().set_fg_pid(SmallShell::getInstance().get_pid());
     }
     else {
       SmallShell::getInstance().getJobsList()->addJob(this, pid); // If parent process: add the child's process Entry to jobs vector
@@ -1178,7 +1182,7 @@ void ExternalCommand::execute(){
     }
   }
   else{                                                         // Failed fork, may not need to print, but know it is here TODO
-    std::cout << "fork failed" << std::endl;
+    std::cout << "smash error: fork failed" << std::endl;
     return;
   }
 }
@@ -1355,7 +1359,7 @@ void JobsList::removeJobById(int jobId) {
   pid_t pid_to_kill = SmallShell::getInstance().getJobsList()->getJobById(jobId)->getPid();
   if(my_kill(pid_to_kill, SIGKILL) < 0){                                        
     //handle with error with system call TODO
-    std::cout << "kill failed" << std::endl;
+    std::cout << "smash error: kill failed" << std::endl;
   }
   // waitpid(pid_to_kill, nullptr, 0);                             // Ensure no zombie to be created at this moment
   SmallShell::getInstance().getJobsList()->removeFinishedJobs();
@@ -1581,9 +1585,7 @@ void PipeCommand::execute(){
       }
     }
     close(pipe_read_write_fds[1]);
-    std::cout << "PipeExecute2 "<< std::endl;
     m_first_command->execute();
-    std::cout << "PipeExecute3 "<< std::endl;
     exit(0);
   }
 
@@ -1598,7 +1600,7 @@ void PipeCommand::execute(){
 
     if(pid_second == 0){ 
     //second command process 
-      setpgrp();
+      setpgid(0, pid_first);
       close(pipe_read_write_fds[1]); //closing second command write fd 
 
       if(dup2(pipe_read_write_fds[0],STDIN_FILENO) == -1){
@@ -1616,8 +1618,11 @@ void PipeCommand::execute(){
     close(pipe_read_write_fds[0]);
     close(pipe_read_write_fds[1]);
 
+
+    SmallShell::getInstance().set_fg_pid(pid_second);
     waitpid(pid_first, nullptr, 0);
     waitpid(pid_second, nullptr, 0);
+    SmallShell::getInstance().set_fg_pid(SmallShell::getInstance().get_pid());
     
     if(dup2(old_stdout_fd,STDOUT_FILENO) == -1 || dup2(old_stdin_fd,STDIN_FILENO) == -1){
       perror("smash error: dup2 failed");
