@@ -17,6 +17,7 @@
 #include <algorithm>
 #include <fcntl.h>
 #include <regex>
+#include <iomanip>
 
 using namespace std;
 
@@ -572,12 +573,12 @@ bool UnSetEnvCommand::is_environment_variable(const char* varName) {
 // ---------------------------------------Watch Procces Command methods section-------------------------------------------------
 //------------------------------------------------------------------------------------------------------------------------------
 
-unsigned long long WatchProcCommand::getProcCpuTime(pid_t pid){ //!!!!!!check if return 0 is not an available value and if it is change the error return
+ unsigned long long WatchProcCommand::getProcCpuTime(pid_t pid){ //!!!!!!check if return 0 is not an available value and if it is change the error return
   std::string stat_path = "/proc/" + to_string(pid) + "/stat";
   int fd = open(stat_path.c_str(), O_RDONLY );
   if(fd == -1){
     perror("smash error: open failed"); //check this might need to change it
-    return 0;
+    return 0.0;
   }
 
   char buffer[1024]; //check if enough
@@ -585,7 +586,7 @@ unsigned long long WatchProcCommand::getProcCpuTime(pid_t pid){ //!!!!!!check if
   close(fd);
   if (bytesRead <=0){
     perror("smash error: read failed"); //check this might need to change it
-    return 0;
+    return 0.0;
   }
 
   int i = 0;
@@ -593,7 +594,7 @@ unsigned long long WatchProcCommand::getProcCpuTime(pid_t pid){ //!!!!!!check if
     i++;
   }
   if (i == bytesRead){
-    return 0;
+    return 0.0;
   }
 
   i += 2;
@@ -629,7 +630,7 @@ unsigned long long WatchProcCommand::getTotalCpuTime(){
   int fd = open("/proc/stat", O_RDONLY );
   if(fd == -1){
     perror("smash error: open failed"); //check this might need to change it
-    return 0;
+    return 0.0;
   }
 
   char buffer[1024]; //check if enough
@@ -637,7 +638,7 @@ unsigned long long WatchProcCommand::getTotalCpuTime(){
   close(fd);
   if (bytesRead <=0){
     perror("smash error: read failed"); //check this might need to change it
-    return 0;
+    return 0.0;
   }
   buffer[bytesRead] = '\0';
   const char* target_word = "cpu";
@@ -648,10 +649,10 @@ unsigned long long WatchProcCommand::getTotalCpuTime(){
     i++;
   }
   if (i == bytesRead){
-    return 0;
+    return 0.0;
   }
 
-  while(buffer[i] < '0' || buffer[i] < '9'){
+  while(buffer[i] < '0' || buffer[i] > '9'){
     i++; //skip the 'cpu' lable 
   }
    
@@ -663,7 +664,7 @@ unsigned long long WatchProcCommand::getTotalCpuTime(){
   while(i < bytesRead && curr_field_number < 10){
     while(buffer[i] >= '0' && buffer[i] <= '9'){
       if (i >= bytesRead){
-        return 0; //might need to change
+        return 0.0; //might need to change
       }
       curr_field_time = (curr_field_time * 10) + (buffer[i] - '0');
       i++;
@@ -681,33 +682,36 @@ unsigned long long WatchProcCommand::getTotalCpuTime(){
 
 
 
-unsigned long long WatchProcCommand::getCpuUsage(pid_t pid){
+double WatchProcCommand::getCpuUsage(pid_t pid){
 
   unsigned long long process_time1 = getProcCpuTime(pid);
+  //std::cout << "Process time 1: " << process_time1 << std::endl;
   unsigned long long total_time1 = getTotalCpuTime();
-
+  //std::cout << "Total time 1: " << total_time1 << std::endl;
   sleep(1);
 
   unsigned long long process_time2 = getProcCpuTime(pid);
+  //std::cout << "Process time 2: " << process_time2 << std::endl;
   unsigned long long total_time2 = getTotalCpuTime();
+  //std::cout << "Total time 2: " << total_time2 << std::endl;
   
   unsigned long long delta_process = process_time2 - process_time1;
   unsigned long long delta_total = total_time2 -total_time1;
   
   if (delta_total == 0){
-    return 0;
+    return 0.0;
   }
-  return ((double)( delta_process/delta_total) * 100.0);
+  return (double)delta_process/delta_total * 100.0;
 };
 
 
 
-std::string WatchProcCommand::getMemUsage(pid_t pid){
+double WatchProcCommand::getMemUsage(pid_t pid){
   std::string status_path = "/proc/" + to_string(pid) + "/status";
     int fd = open(status_path.c_str(), O_RDONLY );
     if(fd == -1){
       perror("smash error: open failed"); //check this might need to change it
-      return "";
+      return 0;
     }
 
     char buffer[4048]; //check if enough
@@ -715,7 +719,7 @@ std::string WatchProcCommand::getMemUsage(pid_t pid){
     close(fd);
     if (bytesRead <=0){
       perror("smash error: read failed"); 
-      return "";
+      return 0;
     }
   buffer[bytesRead] = '\0';
   const char* target_line = "VmRSS:";
@@ -728,19 +732,29 @@ std::string WatchProcCommand::getMemUsage(pid_t pid){
         i++;
       }
       size_t start_index = i;
-
       while(i < (size_t)bytesRead && buffer[i] != '\n'){
         i++;
       }
       if (i == (size_t)bytesRead){
-        return "";
+        return 0;
       }
-      return std::string(&buffer[start_index],  i - start_index);
+      std::string return_str(&buffer[start_index],  i - start_index);
+      size_t first_num = return_str.find_first_of("0123456789");
+      size_t last_num = return_str.find_last_of("0123456789");
+      double number = 0;
+      for(int i = 0 ; i < return_str.size() ; i++){
+          if(return_str.at(i) < '0' || return_str.at(i)> '9'){
+            continue;
+          }
+          number = 10*number + (return_str.at(i) -'0');
+      }
+      //_trim(return_str)
+       
+      return number / 1024;
     }
     i++;
   }
-  return "";
-
+  return 0;
 };
 
 
@@ -754,8 +768,8 @@ void WatchProcCommand::execute(){
   else{
     pid_t pid_to_print = atoi(args[1]);
     if(kill(pid_to_print, 0) == 0){                  // Process exist, and we have permission
-
-      std::cout << "PID: " << pid_to_print << " | CPU Usage: " << getCpuUsage(pid_to_print) << "%" <<" | Memory Usage: " << getMemUsage(pid_to_print) << std::endl;
+      //std::cout << std::fixed << setprecision(1);
+      std::cout << "PID: " << pid_to_print << " | CPU Usage: " << getCpuUsage(pid_to_print) << "%" <<" | Memory Usage: " << getMemUsage(pid_to_print) <<" MB" << std::endl;
 
     }
     else{
