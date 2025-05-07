@@ -415,6 +415,7 @@ void KillCommand::execute(){
 
     if(job_entry != nullptr){                                               // Check that a job with this ID exist
       std::cout << "signal number " << jobIsignal_num << " was sent to pid " << job_entry->getPid() << std::endl;
+      job_entry -> set_stopped();
       kill(job_entry->getPid(), jobIsignal_num);
       // SmallShell::getInstance().getJobsList()->removeJobById(jobId);
     }
@@ -1166,6 +1167,7 @@ void ExternalCommand::execute(){
     if (execvp(args[0], args) == -1) {                          // Search for the command in PATH env, with our arguments
       perror("smash error: execvp failed");
     }
+    SmallShell::getInstance().getJobsList()->getLastJob()->set_stopped();   // If execvp fail so out of vector
     exit(1);                                                    // Get here only if execvp failed
 
   }
@@ -1252,7 +1254,7 @@ void JobsCommand::execute(){
 //_____________________ Jobs List implemintation _____________________ //
 
 JobsList::JobEntry::JobEntry(int newJobId, pid_t newJobPid, Command *cmd) : m_jobId(newJobId), m_pid(newJobPid), m_jobCmdLine(SmallShell::getInstance().getLastCmdLine()){
-
+  m_stopped = false;
 }
 
 void JobsList::updateMaxJobID(){
@@ -1307,7 +1309,7 @@ void JobsList::printJobsListForKill(){
   for (auto it = jobsVector.begin(); it != jobsVector.end(); ++it) {
     std::cout << (*it)->getJobPid() << ": " << (*it)->getJobCmdLine() << std::endl;
   }
-  std::cout << "Linux-shell:" << std::endl;
+  // std::cout << "Linux-shell:" << std::endl;
 }
 
 
@@ -1319,11 +1321,10 @@ void JobsList:: killAllJobs(){
       
       pid_t pid_to_kill = (*it)->getPid();
       kill(pid_to_kill, SIGKILL);
+      (*it)->set_stopped();
       // waitpid(pid_to_kill, nullptr, WNOHANG);   // TODO consider to use because of zombies
   }
 }
-
-
 
 //___remove all the finished jobs from the jobs list___//
 void JobsList::removeFinishedJobs() {
@@ -1332,8 +1333,8 @@ void JobsList::removeFinishedJobs() {
       pid_t pid_to_delete = (*it)->getPid();
       pid_t result = waitpid(pid_to_delete, &status, WNOHANG);
 
-      if (result == pid_to_delete) {
-          std::cout << "im removing job: " << (*it)->getJobCmdLine() << "in pid" << getpid() << std::endl;
+      if ((*it)->is_stopped() || (pid_to_delete == result)) {
+          // std::cout << "im removing job: " << (*it)->getJobCmdLine() << "in pid" << getpid() << std::endl;
           delete *it;  // Free the memory of the JobEntry object
           it = jobsVector.erase(it); // Remove the pointer from the vector
       } else {
@@ -1355,22 +1356,6 @@ JobsList::JobEntry* JobsList::getJobById(int jobId) {
   }
   return nullptr;
 }
-
-  //ADD HERE 
-
-
-
-
-void JobsList::removeJobById(int jobId) {
-  pid_t pid_to_kill = SmallShell::getInstance().getJobsList()->getJobById(jobId)->getPid();
-  if(kill(pid_to_kill, SIGKILL) < 0){                                        
-    //handle with error with system call TODO
-    std::cout << "smash error: kill failed" << std::endl;
-  }
-  // waitpid(pid_to_kill, nullptr, 0);                             // Ensure no zombie to be created at this moment
-  SmallShell::getInstance().getJobsList()->removeFinishedJobs();
-}
-
 
 
 JobsList::JobEntry* JobsList::getLastJob() {
@@ -1403,10 +1388,12 @@ void ForegroundCommand::execute(){
       }
       else{
         JobsList::JobEntry* requastedJob = m_jobs->getLastJob();
+        requastedJob -> set_stopped();
         if( requastedJob != nullptr){                                                         // TODO consider writing it only once, more compact less readable
           SmallShell::getInstance().set_fg_pid(requastedJob->getPid());
           std::cout << requastedJob->getJobCmdLine() << " " << requastedJob->getPid() << std::endl;                               // Print as declared in the PDF
           waitpid(requastedJob->getPid(), &status, 0);                                                       // waitpid method
+          SmallShell::getInstance().set_fg_pid(SmallShell::getInstance().get_pid());
         }
       }
     }
@@ -1415,10 +1402,12 @@ void ForegroundCommand::execute(){
       int jobId = atoi(args[1]);
       if(jobId){
         JobsList::JobEntry* requastedJob = m_jobs->getJobById(jobId);
+        requastedJob -> set_stopped();
         if( requastedJob != nullptr){       
           SmallShell::getInstance().set_fg_pid(requastedJob->getPid());                                                                          // Status for waitpid usage
           std::cout << requastedJob->getJobCmdLine() << " " << requastedJob->getPid() << std::endl;                   // Print as declared in the PDF   
-          waitpid(requastedJob->getPid(), &status, 0);                                           // waitpid method     
+          waitpid(requastedJob->getPid(), &status, 0);                                           // waitpid method   
+          SmallShell::getInstance().set_fg_pid(SmallShell::getInstance().get_pid());  
         }
         else{
           std::cout << "smash error: fg: job-id " << jobId << " does not exist" << std::endl;

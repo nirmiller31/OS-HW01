@@ -335,6 +335,10 @@ class JobsList {
             int getJobPid()const;
     
             pid_t getPid()const;
+
+            bool is_stopped() {return m_stopped;}
+
+            void set_stopped() {m_stopped = true;}
     
             std::string getJobCmdLine()const;
     
@@ -342,6 +346,7 @@ class JobsList {
             int m_jobId;
             pid_t m_pid;
             std::string m_jobCmdLine;
+            bool m_stopped;
         };
     
     
@@ -366,8 +371,6 @@ class JobsList {
         int countLiveJobs();
     
         JobEntry *getJobById(int jobId);
-    
-        void removeJobById(int jobId);
     
         JobEntry *getLastJob();
     
