@@ -148,6 +148,9 @@ BuiltInCommand::~BuiltInCommand() {}
 * Creates and returns a pointer to Command class which matches the given command line (cmd_line)
 */
 Command *SmallShell::CreateCommand(const char *cmd_line) {
+
+  SmallShell::getInstance().getJobsList()->removeFinishedJobs();
+
   string cmd_s = _trim(string(cmd_line));
   string firstWord = cmd_s.substr(0, cmd_s.find_first_of(" \n"));
 
@@ -222,14 +225,16 @@ Command *SmallShell::CreateCommand(const char *cmd_line) {
 //------------------------------------------------------------------------------------------------------------------------------
 void SmallShell::executeCommand(const char *cmd_line) {
   
-    // TODO: Add your implementation here
-    this->m_lastCmdLine = cmd_line;
-    Command* cmd = CreateCommand(cmd_line);
-
-  
-    cmd->execute();
-
-    // Please note that you must fork smash process for some commands (e.g., external commands....)
+    char* args[20]; 
+    int argc = _parseCommandLine(cmd_line, args);
+    if(argc <= 0){
+    return;
+    }
+    else {
+      this->m_lastCmdLine = cmd_line;
+      Command* cmd = CreateCommand(cmd_line);
+      cmd->execute();
+    }
 }
 
 char** SmallShell::get_last_dir() {
@@ -316,7 +321,7 @@ const char* ChangeDirCommand::take_second_arg(const char *cmd_line) {
     while (*tmp_cmd_line && !std::isspace(*tmp_cmd_line)) ++tmp_cmd_line;   // Skip the given path
     while (*tmp_cmd_line && std::isspace(*tmp_cmd_line)) ++tmp_cmd_line;    // Skip the spaces after the path
     if(*tmp_cmd_line) {                                                     // Check if something left after: [cd][spaces][<path>][spaces][---something?---]
-      std::cout << "smash error: cd: too many arguements" << std::endl;
+      std::cerr << "smash error: cd: too many arguements" << std::endl;
     }
     return *cmd_line ? cmd_line : nullptr;
 }
@@ -330,7 +335,7 @@ void ChangeDirCommand::execute() {
   if (std::string(m_newDir).compare("-") == 0) {                            // Check if special key activated
     const char* last_dir = *m_lastDir;                                      // Only use for the previous path
     if(std::string(last_dir).compare("") == 0) {
-      std::cout << "smash error: cd: OLDPWD not set" << std::endl;
+      std::cerr << "smash error: cd: OLDPWD not set" << std::endl;
       return;
     }
     else if(chdir(last_dir) != 0){                                          // Change dir to previous saved path
@@ -364,7 +369,7 @@ void QuitCommand::execute(){
   }
   else if(string(args[1]) == "kill"){
     int num_jobs = SmallShell::getInstance().getJobsList()->countLiveJobs();
-    std::cout << "smash: sending SIGKILL signals to " << num_jobs << " jobs" << std::endl;
+    std::cout << "smash: sending SIGKILL signal to " << num_jobs << " jobs:" << std::endl;
       m_jobs->printJobsListForKill();
       m_jobs->killAllJobs();
       exit(0);
@@ -387,7 +392,7 @@ const char* QuitCommand::take_second_arg(const char *cmd_line) {
     while (*tmp_cmd_line && !std::isspace(*tmp_cmd_line)) ++tmp_cmd_line;   // Skip the given path
     while (*tmp_cmd_line && std::isspace(*tmp_cmd_line)) ++tmp_cmd_line;    // Skip the spaces after the path
     if(*tmp_cmd_line) {                                                     // Check if something left after: [cd][spaces][<path>][spaces][---something?---]
-      std::cout << "smash error: cd: too many arguements" << std::endl;
+      std::cerr << "smash error: cd: too many arguements" << std::endl;
     }
     return *cmd_line ? cmd_line : nullptr;
 }
@@ -407,8 +412,13 @@ void KillCommand::execute(){
   int jobIsignal_num, jobId;
   JobsList::JobEntry* job_entry;
 
-  jobIsignal_num = atoi(args[1]);
-  if((argc == 3) && jobIsignal_num < 0){                                    // Verify correct number of arguments, and exsitance of '-' before the signal
+  if(args[1]) {
+    jobIsignal_num = atoi(args[1]);
+  }
+  if((argc != 3 || (jobIsignal_num >= 0))){
+    std::cerr << "smash error: kill: invalid arguements" << std::endl;
+  }
+  else{                                    // Verify correct number of arguments, and exsitance of '-' before the signal
     jobIsignal_num = abs(jobIsignal_num);
     jobId = atoi(args[2]);
     job_entry = SmallShell::getInstance().getJobsList()->getJobById(jobId);
@@ -416,15 +426,14 @@ void KillCommand::execute(){
     if(job_entry != nullptr){                                               // Check that a job with this ID exist
       std::cout << "signal number " << jobIsignal_num << " was sent to pid " << job_entry->getPid() << std::endl;
       job_entry -> set_stopped();
-      kill(job_entry->getPid(), jobIsignal_num);
-      // SmallShell::getInstance().getJobsList()->removeJobById(jobId);
+      if(kill(job_entry->getPid(), jobIsignal_num) != 0){
+        // std::cerr << "smash error: " << jobIsignal_num << " failed" << std::endl;
+        std::cerr << "smash error: kill: invalid arguements" << std::endl;
+      }
     }
     else {
-      std::cout << "smash error: kill: job-id " << jobId << " does not exist" << std::endl;
+      std::cerr << "smash error: kill: job-id " << jobId << " does not exist" << std::endl;
     }
-  }
-  else{
-    std::cout << "smash error: kill: invalid arguements" << std::endl;
   }
   SmallShell::getInstance().getJobsList()->removeFinishedJobs();
 }
@@ -453,11 +462,11 @@ void AliasCommand::execute(){
         SmallShell::getInstance().add_alias(new SmallShell::Alias(aliasStr, commandStr));
       }
       else{
-        std::cout << "smash error: alias: " << aliasStr << " already exists or is a reserved command" << std::endl;
+        std::cerr << "smash error: alias: " << aliasStr << " already exists or is a reserved command" << std::endl;
       }
 
   } else {
-      std::cout << "Invalid format.\n";
+      std::cerr << "Invalid format.\n";
   }
 }
 //------------------------------------------------------------------------------------------------------------------------------
@@ -471,7 +480,7 @@ void UnAliasCommand::execute(){
   char* args[21]; 
   int argc = _parseCommandLine(m_cmdLine, args);
   if(argc == 1){
-    std::cout << "smash error: unalias: not enough arguements" << std::endl;
+    std::cerr << "smash error: unalias: not enough arguements" << std::endl;
   }
   else{
     for(int i = 1 ; i<argc ; i++){
@@ -479,7 +488,7 @@ void UnAliasCommand::execute(){
         SmallShell::getInstance().delete_alias_by_name(args[i]);
       }
       else{
-        std::cout << "smash error: unalias: " << args[i] << "alias does not exist" << std::endl;
+        std::cerr << "smash error: unalias: " << args[i] << "alias does not exist" << std::endl;
       }
     }
   }
@@ -495,7 +504,7 @@ void UnSetEnvCommand::execute(){
   char* args[21]; 
   int argc = _parseCommandLine(m_cmdLine, args);
   if(argc == 1){
-    std::cout << "smash error: unsetenv: not enough arguements" << std::endl;
+    std::cerr << "smash error: unsetenv: not enough arguements" << std::endl;
   }
   else{
     for(int i = 1 ; i<argc ; i++){
@@ -503,15 +512,13 @@ void UnSetEnvCommand::execute(){
         SmallShell::getInstance().unset_enviorment(args[i]);
       }
       else{
-        std::cout << "smash error: unsetenv: " << args[i] << "does not exist" << std::endl;
+        std::cerr << "smash error: unsetenv: " << args[i] << "does not exist" << std::endl;
       }
     }
   }
 }
 
 void SmallShell::unset_enviorment(string varName) {
-
-// std::cout << "----------------------------------------------Im unsetting for PID: " << getpid() << std::endl;
 
   for (char **env = __environ; *env != nullptr; ++env) {
         std::string env_var(*env);
@@ -558,7 +565,6 @@ bool UnSetEnvCommand::is_environment_variable(const char* varName) {
       if(string(varName) == current_check) {
         return true;
       }
-      // std::cout << "Im checking: " << current_check << std::endl;     // For debug
       equal_flag = false;                                                 // Reset the search
       current_check = "";
     }
@@ -749,7 +755,7 @@ void WatchProcCommand::execute(){
   char* args[21]; 
   int argc = _parseCommandLine(m_cmdLine, args);
   if(argc != 2 || atoi(args[1]) <= 0){
-    std::cout << "smash error: watchproc: invalid arguements" << std::endl;
+    std::cerr << "smash error: watchproc: invalid arguements" << std::endl;
   }
   else{
     pid_t pid_to_print = atoi(args[1]);
@@ -759,7 +765,7 @@ void WatchProcCommand::execute(){
 
     }
     else{
-      std::cout << "smash error: watchproc: pid " << pid_to_print << " does not exist" << std::endl;
+      std::cerr << "smash error: watchproc: pid " << pid_to_print << " does not exist" << std::endl;
     }
   }
 }
@@ -903,7 +909,7 @@ void DiskUsageCommand::execute(){
 
     int dir_FD = open(args[1], O_RDONLY | O_DIRECTORY);                                       //----------------------------------------------------
     if (dir_FD < 0) {                                                                         //
-        std::cout << "smash error: du: " << args[1] << " does not exist" << std::endl;        // Check exsitance, other function is recursive.
+        std::cerr << "smash error: du: " << args[1] << " does not exist" << std::endl;        // Check exsitance, other function is recursive.
         return;                                                                               //
     }                                                                                         //
     close(dir_FD);                                                                            //-----------------------------------------------------
@@ -911,7 +917,7 @@ void DiskUsageCommand::execute(){
     std::cout << "Total disk usage: " << (sum_directory_files(args[1]) / 1024.0) << " KB" << std::endl;
   }
   else{
-    std::cout << "smash error: du: too many arguements" << std::endl;
+    std::cerr << "smash error: du: too many arguements" << std::endl;
   }
 }
 
@@ -980,14 +986,14 @@ void NetInfo::execute(){
   int argc = _parseCommandLine(m_cmdLine, args);
 
   if(argc == 1){
-    std::cout << "smash error: netinfo: interface not specified" << std::endl;
+    std::cerr << "smash error: netinfo: interface not specified" << std::endl;
   }
   else if(argc == 2){
     if(interface_exist(args[1])){
       print_netinfo(args[1]);
     }
     else{
-      std::cout << "smash error: netinfo: interface " << args[1] << " does not exist" << std::endl;
+      std::cerr << "smash error: netinfo: interface " << args[1] << " does not exist" << std::endl;
     }
   }
   else{
@@ -1157,9 +1163,10 @@ void ExternalCommand::execute(){
   pid_t pid = fork();                                           // Create a child process
   
   if(pid == 0){                                                 // New child process code
-    setpgrp();                                             
+    setpgrp();                                     
     if(_isSpecialExternalComamnd(shorterCmd)) {
-      char* bash_exec[] = {"bash", "-c", shorterCmd, nullptr};  // Create an array to run: "bash -c "<original input>""
+      char* bash_exec[] = {(char*)"bash", (char*)"-c", shorterCmd, nullptr};
+      // char* bash_exec[] = {"bash", "-c", shorterCmd, nullptr};  // Create an array to run: "bash -c "<original input>""
       if (execvp("bash", bash_exec) == -1){
         perror("smash error: execvp failed");
       }
@@ -1177,12 +1184,12 @@ void ExternalCommand::execute(){
     }
     else {
       SmallShell::getInstance().set_fg_pid(pid);
-      wait(nullptr);
+      waitpid(pid, nullptr ,0);
       SmallShell::getInstance().set_fg_pid(SmallShell::getInstance().get_pid());
     }
   }
   else{                                                         // Failed fork, may not need to print, but know it is here TODO
-    std::cout << "smash error: fork failed" << std::endl;
+    perror("smash error: fork failed");
     return;
   }
 }
@@ -1246,6 +1253,15 @@ void SmallShell::delete_alias_by_name(std::string alias_name){
 }
 
 JobsList* SmallShell::getJobsList(){return this->m_jobsList;}
+
+bool JobsList::job_exist(int job_ID_to_look){
+  for (auto it = jobsVector.begin(); it != jobsVector.end(); ++it) {
+    if((*it)->getJobId() == job_ID_to_look) {
+      return true;
+    }
+  }
+  return false;
+}
 
 void JobsCommand::execute(){
     m_jobs->printJobsList();
@@ -1334,7 +1350,6 @@ void JobsList::removeFinishedJobs() {
       pid_t result = waitpid(pid_to_delete, &status, WNOHANG);
 
       if ((*it)->is_stopped() || (pid_to_delete == result)) {
-          std::cout << "im removing job: " << (*it)->getJobCmdLine() << "in pid" << getpid() << std::endl;
           delete *it;  // Free the memory of the JobEntry object
           it = jobsVector.erase(it); // Remove the pointer from the vector
       } else {
@@ -1384,7 +1399,7 @@ void ForegroundCommand::execute(){
     int argc = _parseCommandLine(m_cmdLine, args);
     if(argc == 1){;
       if(m_jobs->empty()){
-        std::cout << "smash error: fg: jobs list is empty" << std::endl;
+        std::cerr << "smash error: fg: jobs list is empty" << std::endl;
       }
       else{
         JobsList::JobEntry* requastedJob = m_jobs->getLastJob();
@@ -1398,29 +1413,23 @@ void ForegroundCommand::execute(){
       }
     }
 
-    else if(argc == 2){   //TODO consider using >2 instead of =
+    else if((argc == 2) && (atoi(args[1]) > 0)){   //TODO consider using >2 instead of =
       int jobId = atoi(args[1]);
-      if(jobId){
+      if(SmallShell::getInstance().getJobsList()->job_exist(jobId)){
         JobsList::JobEntry* requastedJob = m_jobs->getJobById(jobId);
-        requastedJob -> set_stopped();
-        if( requastedJob != nullptr){       
-          SmallShell::getInstance().set_fg_pid(requastedJob->getPid());                                                                          // Status for waitpid usage
-          std::cout << requastedJob->getJobCmdLine() << " " << requastedJob->getPid() << std::endl;                   // Print as declared in the PDF   
-          waitpid(requastedJob->getPid(), &status, 0);                                           // waitpid method   
-          SmallShell::getInstance().set_fg_pid(SmallShell::getInstance().get_pid());  
-        }
-        else{
-          std::cout << "smash error: fg: job-id " << jobId << " does not exist" << std::endl;
-        }
-        
+        requastedJob -> set_stopped();      
+        SmallShell::getInstance().set_fg_pid(requastedJob->getPid());                                                                          // Status for waitpid usage
+        std::cout << requastedJob->getJobCmdLine() << " " << requastedJob->getPid() << std::endl;                   // Print as declared in the PDF   
+        waitpid(requastedJob->getPid(), &status, 0);                                           // waitpid method   
+        SmallShell::getInstance().set_fg_pid(SmallShell::getInstance().get_pid());         
       }
       else{
-        std::cout << "smash error: fg: invalid arguments" << std::endl;
+        std::cerr << "smash error: fg: job-id " << jobId << " does not exist" << std::endl;
       }
     }
 
     else{
-      std::cout << "smash error: fg: invalid arguments" << std::endl;
+      std::cerr << "smash error: fg: invalid arguments" << std::endl;
     }
   }
   SmallShell::getInstance().getJobsList()->removeFinishedJobs();
