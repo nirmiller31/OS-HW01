@@ -1334,7 +1334,7 @@ void JobsList::removeFinishedJobs() {
       pid_t result = waitpid(pid_to_delete, &status, WNOHANG);
 
       if ((*it)->is_stopped() || (pid_to_delete == result)) {
-          // std::cout << "im removing job: " << (*it)->getJobCmdLine() << "in pid" << getpid() << std::endl;
+          std::cout << "im removing job: " << (*it)->getJobCmdLine() << "in pid" << getpid() << std::endl;
           delete *it;  // Free the memory of the JobEntry object
           it = jobsVector.erase(it); // Remove the pointer from the vector
       } else {
