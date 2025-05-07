@@ -352,6 +352,8 @@ class JobsList {
         ~JobsList() = default ;
     
         void addJob(Command* cmd, pid_t pid , bool isStopped = false);
+
+        // void set_stopped() {}
     
         void printJobsList();
     
@@ -371,7 +373,7 @@ class JobsList {
     
         JobEntry *getLastStoppedJob(int *jobId);
     
-        void updateMaxJobID() {maxJobId++;}
+        void updateMaxJobID();
     
         bool empty()const;
     

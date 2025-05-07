@@ -1170,7 +1170,6 @@ void ExternalCommand::execute(){
 
   }
   else if(pid > 0){                                              // Parent process code
-    int status = 0;
     if(background_command){
       SmallShell::getInstance().getJobsList()->addJob(this, pid); // If parent process: add the child's process Entry to jobs vector
     }
@@ -1256,6 +1255,15 @@ JobsList::JobEntry::JobEntry(int newJobId, pid_t newJobPid, Command *cmd) : m_jo
 
 }
 
+void JobsList::updateMaxJobID(){
+  maxJobId = 0;
+  for (auto it = jobsVector.begin(); it != jobsVector.end(); ++it) {
+    if((*it)->getJobId() > maxJobId) {
+      maxJobId = ((*it)->getJobId());
+    }
+  }
+}
+
 SmallShell::Alias::Alias(string new_alias_name, string new_alias_cmd) : m_aliasName(new_alias_name), m_aliasCommand(new_alias_cmd){
 
 }
@@ -1280,8 +1288,8 @@ std::string JobsList::JobEntry::getJobCmdLine()const{return this->m_jobCmdLine;}
 
 void JobsList::addJob(Command* cmd, pid_t pid, bool isStopped){
   this->removeFinishedJobs();
-  JobEntry* new_entry = new JobEntry(this->maxJobId + 1 , pid , cmd);
   updateMaxJobID();
+  JobEntry* new_entry = new JobEntry(this->maxJobId + 1 , pid , cmd);
   jobsVector.push_back(new_entry);
 }
 
@@ -1325,14 +1333,13 @@ void JobsList::removeFinishedJobs() {
       pid_t result = waitpid(pid_to_delete, &status, WNOHANG);
 
       if (result == pid_to_delete) {
+          std::cout << "im removing job: " << (*it)->getJobCmdLine() << "in pid" << getpid() << std::endl;
           delete *it;  // Free the memory of the JobEntry object
           it = jobsVector.erase(it); // Remove the pointer from the vector
       } else {
           ++it;
       }
   }
-
-  // You can add other cleanup code here if needed
 }
 
 
@@ -1370,7 +1377,6 @@ JobsList::JobEntry* JobsList::getLastJob() {
   if(jobsVector.empty()){
     return nullptr;
   }
-  
   return jobsVector.back();
 }
 
@@ -1399,8 +1405,8 @@ void ForegroundCommand::execute(){
         JobsList::JobEntry* requastedJob = m_jobs->getLastJob();
         if( requastedJob != nullptr){                                                         // TODO consider writing it only once, more compact less readable
           SmallShell::getInstance().set_fg_pid(requastedJob->getPid());
-          waitpid(requastedJob->getPid(), &status, 0);                                                       // waitpid method
           std::cout << requastedJob->getJobCmdLine() << " " << requastedJob->getPid() << std::endl;                               // Print as declared in the PDF
+          waitpid(requastedJob->getPid(), &status, 0);                                                       // waitpid method
         }
       }
     }
@@ -1411,8 +1417,8 @@ void ForegroundCommand::execute(){
         JobsList::JobEntry* requastedJob = m_jobs->getJobById(jobId);
         if( requastedJob != nullptr){       
           SmallShell::getInstance().set_fg_pid(requastedJob->getPid());                                                                          // Status for waitpid usage
-          waitpid(requastedJob->getPid(), &status, 0);                                           // waitpid method
-          std::cout << requastedJob->getJobCmdLine() << " " << requastedJob->getPid() << std::endl;                   // Print as declared in the PDF        
+          std::cout << requastedJob->getJobCmdLine() << " " << requastedJob->getPid() << std::endl;                   // Print as declared in the PDF   
+          waitpid(requastedJob->getPid(), &status, 0);                                           // waitpid method     
         }
         else{
           std::cout << "smash error: fg: job-id " << jobId << " does not exist" << std::endl;
@@ -1428,6 +1434,7 @@ void ForegroundCommand::execute(){
       std::cout << "smash error: fg: invalid arguments" << std::endl;
     }
   }
+  SmallShell::getInstance().getJobsList()->removeFinishedJobs();
 }
 
 //------------------------------------------------------------------------------------------------------------------------------
@@ -1645,3 +1652,4 @@ void PipeCommand::execute(){
 //------------------------------------------------------------------------------------------------------------------------------
 // ------------------------------------------------------End-of-section---------------------------------------------------------
 //****************************************************************************************************************************//
+
