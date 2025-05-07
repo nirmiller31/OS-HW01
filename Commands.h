@@ -421,7 +421,8 @@ public:
     uid_t get_shell_uid();
     pid_t get_pid() {return m_pid;}
     std::string getLastCmdLine()const;
-
+    pid_t get_fg_pid(){return m_fg_pid;}
+    void set_fg_pid(pid_t fg_pid){m_fg_pid = fg_pid;}
     //---------------------------Alias Used----------------------------
     void add_alias(Alias* new_alias) {m_aliasList.push_back(new_alias);}
     bool alias_exist (const char* alias_name);
@@ -442,8 +443,8 @@ public:
     JobsList* m_jobsList;
     pid_t m_pid;
     std::vector<Alias*> m_aliasList;
-
-    // TODO: add extra methods as needed
+    pid_t m_fg_pid;
+    
 };
 
 #endif //SMASH_COMMAND_H_
