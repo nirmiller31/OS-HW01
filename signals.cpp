@@ -14,14 +14,10 @@ void ctrlCHandler(int sig_num) {
         return;
     }
     
-    if(my_kill(fg_pid, SIGKILL) != 0){
+    if(kill(fg_pid, SIGKILL) != 0){
         perror("smash error: kill");
     }
 
     std::cout<<"smash: process "<< fg_pid << " was killed" << std::endl;
     return;
-}
-
-int my_kill(pid_t pid, int sig) {
-    return ::kill(pid, sig);
 }

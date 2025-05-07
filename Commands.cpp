@@ -415,7 +415,7 @@ void KillCommand::execute(){
 
     if(job_entry != nullptr){                                               // Check that a job with this ID exist
       std::cout << "signal number " << jobIsignal_num << " was sent to pid " << job_entry->getPid() << std::endl;
-      my_kill(job_entry->getPid(), jobIsignal_num);
+      kill(job_entry->getPid(), jobIsignal_num);
       // SmallShell::getInstance().getJobsList()->removeJobById(jobId);
     }
     else {
@@ -752,7 +752,7 @@ void WatchProcCommand::execute(){
   }
   else{
     pid_t pid_to_print = atoi(args[1]);
-    if(my_kill(pid_to_print, 0) == 0){                  // Process exist, and we have permission
+    if(kill(pid_to_print, 0) == 0){                  // Process exist, and we have permission
 
       std::cout << "PID: " << pid_to_print << " | CPU Usage: " << getCpuUsage(pid_to_print) << "%" <<" | Memory Usage: " << getMemUsage(pid_to_print) << std::endl;
 
@@ -1152,9 +1152,7 @@ void ExternalCommand::execute(){
   bool background_command = _isBackgroundComamnd(m_cmdLine.c_str());    // Check if it is a background command (if "&" in the end)
   if(background_command){_removeBackgroundSign(shorterCmd);}    // Remove the "&" from shortherCmd, we don't need it anymore
   _parseCommandLine(shorterCmd, args);                          // Take the version without the "&" and divide it to an array
-  //for (int i = 0 ; i < 21 ; i++){
-   // std::cout << "Args["<< i << "]: " << args[i] <<std::endl; 
- //}
+
   pid_t pid = fork();                                           // Create a child process
   
   if(pid == 0){                                                 // New child process code
@@ -1168,17 +1166,18 @@ void ExternalCommand::execute(){
     if (execvp(args[0], args) == -1) {                          // Search for the command in PATH env, with our arguments
       perror("smash error: execvp failed");
     }
+    exit(1);                                                    // Get here only if execvp failed
+
   }
-  else if(pid >0){                                              // Parent process code
-    if(!background_command){
+  else if(pid > 0){                                              // Parent process code
+    int status = 0;
+    if(background_command){
+      SmallShell::getInstance().getJobsList()->addJob(this, pid); // If parent process: add the child's process Entry to jobs vector
+    }
+    else {
       SmallShell::getInstance().set_fg_pid(pid);
       wait(nullptr);
       SmallShell::getInstance().set_fg_pid(SmallShell::getInstance().get_pid());
-    }
-    else {
-      SmallShell::getInstance().getJobsList()->addJob(this, pid); // If parent process: add the child's process Entry to jobs vector
-//&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&TODO very important: make sure failed execv process wont get to vector!
-      // std::cout << "The pid created is" << pid << std::endl;
     }
   }
   else{                                                         // Failed fork, may not need to print, but know it is here TODO
@@ -1311,7 +1310,7 @@ void JobsList:: killAllJobs(){
       if (*it == nullptr) continue; // skip null entries
       
       pid_t pid_to_kill = (*it)->getPid();
-      my_kill(pid_to_kill, SIGKILL);
+      kill(pid_to_kill, SIGKILL);
       // waitpid(pid_to_kill, nullptr, WNOHANG);   // TODO consider to use because of zombies
   }
 }
@@ -1357,7 +1356,7 @@ JobsList::JobEntry* JobsList::getJobById(int jobId) {
 
 void JobsList::removeJobById(int jobId) {
   pid_t pid_to_kill = SmallShell::getInstance().getJobsList()->getJobById(jobId)->getPid();
-  if(my_kill(pid_to_kill, SIGKILL) < 0){                                        
+  if(kill(pid_to_kill, SIGKILL) < 0){                                        
     //handle with error with system call TODO
     std::cout << "smash error: kill failed" << std::endl;
   }
@@ -1399,9 +1398,9 @@ void ForegroundCommand::execute(){
       else{
         JobsList::JobEntry* requastedJob = m_jobs->getLastJob();
         if( requastedJob != nullptr){                                                         // TODO consider writing it only once, more compact less readable
-          pid_t result = waitpid(requastedJob->getPid(), &status, WNOHANG);                                                       // waitpid method
+          SmallShell::getInstance().set_fg_pid(requastedJob->getPid());
+          waitpid(requastedJob->getPid(), &status, 0);                                                       // waitpid method
           std::cout << requastedJob->getJobCmdLine() << " " << requastedJob->getPid() << std::endl;                               // Print as declared in the PDF
-          while(result != requastedJob->getPid()) {}                                                                              // Hold the process until child didn't end
         }
       }
     }
@@ -1410,10 +1409,10 @@ void ForegroundCommand::execute(){
       int jobId = atoi(args[1]);
       if(jobId){
         JobsList::JobEntry* requastedJob = m_jobs->getJobById(jobId);
-        if( requastedJob != nullptr){                                                                                              // Status for waitpid usage
-          pid_t result = waitpid(requastedJob->getPid(), &status, WNOHANG);                                           // waitpid method
-          std::cout << requastedJob->getJobCmdLine() << " " << requastedJob->getPid() << std::endl;                   // Print as declared in the PDF
-          while(result != requastedJob->getPid()) {}                                                                  // Hold the process until child didn't end
+        if( requastedJob != nullptr){       
+          SmallShell::getInstance().set_fg_pid(requastedJob->getPid());                                                                          // Status for waitpid usage
+          waitpid(requastedJob->getPid(), &status, 0);                                           // waitpid method
+          std::cout << requastedJob->getJobCmdLine() << " " << requastedJob->getPid() << std::endl;                   // Print as declared in the PDF        
         }
         else{
           std::cout << "smash error: fg: job-id " << jobId << " does not exist" << std::endl;
