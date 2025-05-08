@@ -393,7 +393,7 @@ struct linux_dirent64 {
     unsigned char  entry_type;
     char           entry_name[]; // Flexible array
 };
-    Command *CreateCommand(const char *cmd_line);
+    Command *CreateCommand(const char *input_cmd_line);
 
     SmallShell(SmallShell const &) = delete; // disable copy ctor
     void operator=(SmallShell const &) = delete; // disable = operator

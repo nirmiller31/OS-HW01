@@ -144,19 +144,25 @@ Command::~Command() {}
 
 BuiltInCommand::~BuiltInCommand() {}
 
-Command *SmallShell::CreateCommand(const char *cmd_line) {
+Command *SmallShell::CreateCommand(const char *input_cmd_line) {
 
   SmallShell::getInstance().getJobsList()->removeFinishedJobs();
+  char* cmd_line = new char[COMMAND_MAX_LENGTH];
 
-  string cmd_s = _trim(string(cmd_line));
+  string cmd_s = _trim(string(input_cmd_line));
   string firstWord = cmd_s.substr(0, cmd_s.find_first_of(" \n"));
 
   if(SmallShell::getInstance().alias_exist(firstWord.c_str())){                     // Check a case of an alias
     string alias_name = firstWord.c_str();                                          // If exist, than it is alias's name
-    cmd_line = SmallShell::getInstance().get_command_by_alias(alias_name).c_str();  // Extract the alias's command 
-    cmd_s = _trim(string(cmd_line));                                                // Repeat the same process for the alias
+    string aliased_cmd = SmallShell::getInstance().get_command_by_alias(alias_name);
+    strcpy(cmd_line, aliased_cmd.c_str());                                          // Convert the alias's command to const char 
+    cmd_s = _trim(aliased_cmd);                                                     // Repeat the same process for the alias
     firstWord = cmd_s.substr(0, cmd_s.find_first_of(" \n"));
   }
+  else{
+    strcpy(cmd_line, input_cmd_line);
+  }
+
   if (firstWord.compare("alias") == 0) {
     return new AliasCommand(cmd_line);
   }
@@ -436,6 +442,10 @@ void AliasCommand::execute(){
       std::string aliasStr = match[1];
       std::string commandStr = match[2];
 
+      std::cout << "the alias key is: " << aliasStr << std::endl;
+      std::cout << "the alias cmd is: " << commandStr << std::endl;
+
+
       if(!SmallShell::getInstance().alias_is_reserved(aliasStr.c_str()) && !SmallShell::getInstance().alias_exist(aliasStr.c_str())){
         SmallShell::getInstance().add_alias(new SmallShell::Alias(aliasStr, commandStr));
       }
@@ -444,7 +454,7 @@ void AliasCommand::execute(){
       }
 
   } else {
-      std::cerr << "smash error: alias: invalid alias format";
+      std::cerr << "smash error: alias: invalid alias format" << std::endl;
   }
 }
 //------------------------------------------------------------------------------------------------------------------------------
@@ -1144,12 +1154,11 @@ void ExternalCommand::execute(){
   char* shorterCmd = new char[m_cmdLine.size() + 1];
   strcpy(shorterCmd, m_cmdLine.c_str());                                // Create a shorter (pottentially) modifiable version
 
-  // int pipefd[2];
-  // pipe(pipefd);
-
   bool background_command = _isBackgroundComamnd(m_cmdLine.c_str());    // Check if it is a background command (if "&" in the end)
   if(background_command){_removeBackgroundSign(shorterCmd);}    // Remove the "&" from shortherCmd, we don't need it anymore
   _parseCommandLine(shorterCmd, args);                          // Take the version without the "&" and divide it to an array
+
+  std::cout << "im trying to executr: " << shorterCmd << std::endl;
 
   pid_t pid = fork();                                           // Create a child process
   
@@ -1247,6 +1256,7 @@ string SmallShell::get_command_by_alias(std::string alias_name){
   for (auto it = m_aliasList.begin(); it != m_aliasList.end(); ++it) {
     if((*it) != nullptr) {
       if(alias_name == ((*it)->get_name())){
+        std::cout << "im returning: " << (*it)->get_command() << std::endl;
         result = (*it)->get_command();
       }
     }
