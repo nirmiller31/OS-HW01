@@ -404,11 +404,9 @@ void KillCommand::execute(){
     job_entry = SmallShell::getInstance().getJobsList()->getJobById(jobId);
 
     if(job_entry != nullptr){                                               // Check that a job with this ID exist
+      std::cout << "signal number " << jobIsignal_num << " was sent to pid " << job_entry->getPid() << std::endl;
       if(kill(job_entry->getPid(), jobIsignal_num) != 0){
-        std::cerr << "smash error: kill failed: Invalid argument" << std::endl;
-      }
-      else{
-        std::cout << "signal number " << jobIsignal_num << " was sent to pid " << job_entry->getPid() << std::endl;
+        std::cerr << "smash error: kill failed: Invalid argument" << std::endl;                                      // Probably still get the print!!
       }
     }
     else {
