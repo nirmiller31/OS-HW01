@@ -1230,7 +1230,14 @@ bool SmallShell::alias_is_reserved(const char* alias_name){
             current_position += dir_entry->record_length;                                 // Move to the next directory entry
         }
     }
-    close(dir_FD);    
+    close(dir_FD);
+    string built_in_commands[19] = {"alias", "chprompt", "showpid", "pwd", "cd", "jobs", "fg", "quit", "kill", "unalias", "unsetenv", "watchproc", "whoami", "du", "netinfo", "|", "&", ">", ">>"}; 
+
+    for(int i = 0 ; i<19 ; i++){
+      if(built_in_commands[i] == string(alias_name)){
+        return true;
+      }
+    }    
 
   return false;
 
