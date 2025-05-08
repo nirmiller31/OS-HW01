@@ -318,7 +318,6 @@ const char* ChangeDirCommand::take_second_arg(const char *cmd_line) {
     while (*cmd_line && std::isspace(*cmd_line)) ++cmd_line;                // Skip spaces after the first word
 
     tmp_cmd_line = cmd_line;
-//TODO verify that path is coherent!!!!!!!!!!
     while (*tmp_cmd_line && !std::isspace(*tmp_cmd_line)) ++tmp_cmd_line;   // Skip the given path
     while (*tmp_cmd_line && std::isspace(*tmp_cmd_line)) ++tmp_cmd_line;    // Skip the spaces after the path
     if(*tmp_cmd_line) {                                                     // Check if something left after: [cd][spaces][<path>][spaces][---something?---]
@@ -379,24 +378,6 @@ void QuitCommand::execute(){
     // handle this senario (?) TODO
   }
 }
-
-const char* QuitCommand::take_second_arg(const char *cmd_line) {
-
-  const char* tmp_cmd_line;
-    
-    while (*cmd_line && std::isspace(*cmd_line)) ++cmd_line;                // Skip leading spaces
-    while (*cmd_line && !std::isspace(*cmd_line)) ++cmd_line;               // Skip the first word
-    while (*cmd_line && std::isspace(*cmd_line)) ++cmd_line;                // Skip spaces after the first word
-
-    tmp_cmd_line = cmd_line;
-//TODO verify that path is coherent!!!!!!!!!!
-    while (*tmp_cmd_line && !std::isspace(*tmp_cmd_line)) ++tmp_cmd_line;   // Skip the given path
-    while (*tmp_cmd_line && std::isspace(*tmp_cmd_line)) ++tmp_cmd_line;    // Skip the spaces after the path
-    if(*tmp_cmd_line) {                                                     // Check if something left after: [cd][spaces][<path>][spaces][---something?---]
-      std::cerr << "smash error: cd: too many arguements" << std::endl;
-    }
-    return *cmd_line ? cmd_line : nullptr;
-}
 //------------------------------------------------------------------------------------------------------------------------------
 // ------------------------------------------------------End-of-section---------------------------------------------------------
 //****************************************************************************************************************************//
@@ -423,9 +404,7 @@ void KillCommand::execute(){
     job_entry = SmallShell::getInstance().getJobsList()->getJobById(jobId);
 
     if(job_entry != nullptr){                                               // Check that a job with this ID exist
-      // job_entry -> set_stopped();
       if(kill(job_entry->getPid(), jobIsignal_num) != 0){
-        // std::cerr << "smash error: " << jobIsignal_num << " failed" << std::endl;
         std::cerr << "smash error: kill failed: Invalid argument" << std::endl;
       }
       else{
@@ -919,7 +898,7 @@ void DiskUsageCommand::execute(){
   int argc = _parseCommandLine(m_cmdLine, args);
 
   if(argc == 1){
-    std::cout << "Total disk usage: " << (sum_directory_files(SmallShell::getInstance().get_shell_pwd().c_str()) / 1024.0) << " KB" << std::endl;
+    std::cout << "Total disk usage: " << ((sum_directory_files(SmallShell::getInstance().get_shell_pwd().c_str())) / 1024.0) << " KB" << std::endl;
   }
   else if(argc == 2){
 
@@ -960,7 +939,10 @@ int DiskUsageCommand::sum_directory_files(const char* dirPath) {
     char buffer[8192];                                                                    // Buffer to hold directory entries
     int num_bytes_read;
 
-    int dir_sum = 0;
+    struct stat initial_file_stat;
+    stat(dirPath, &initial_file_stat);
+
+    int dir_sum = (initial_file_stat.st_blocks * 512);
 
     while ((num_bytes_read = syscall(SYS_getdents64, dir_FD, buffer, sizeof(buffer))) > 0) { // Read the directory contents into the buffer (SYS_getdents64 is 217 syscall)
         int current_position = 0;                                                         // Track position in the buffer
@@ -971,12 +953,11 @@ int DiskUsageCommand::sum_directory_files(const char* dirPath) {
 
             if (current_entry_name != "." && current_entry_name != "..") {                // Skip "." and ".." entries
                 std::string current_entry_path = string(dirPath) + "/" + current_entry_name;
-                std::cout << current_entry_path << '\n';                                  // Print the full path of the entry
+                // std::cout << current_entry_path << '\n';                                  // Print the full path of the entry (Debug)
 
                 if (dir_entry->entry_type == DT_DIR) {                                    // If is a sub-directory
                     std::string sub_dir_path = std::string(dirPath) + "/" + current_entry_name;
-                    
-                    dir_sum += (sum_directory_files(sub_dir_path.c_str()) + 4096);                 // Recursive call for subdirectory
+                    dir_sum += sum_directory_files(sub_dir_path.c_str());                 // Recursive call for subdirectory
                 }
                 else{
                   struct stat file_stat;
@@ -988,7 +969,7 @@ int DiskUsageCommand::sum_directory_files(const char* dirPath) {
         }
     }
     close(dir_FD);                                                                        // Close the directory
-    return dir_sum;
+    return (dir_sum);
 }
 //------------------------------------------------------------------------------------------------------------------------------
 // ------------------------------------------------------End-of-section---------------------------------------------------------
@@ -1237,10 +1218,38 @@ void SmallShell::print_alias(){
   }
 }
 
-bool SmallShell::alias_is_reserved(const char* alias_name){                   // TODO search manually
-  std::string cmd = "command -v " + string(alias_name) + " > /dev/null 2>&1";
-  int result = std::system(cmd.c_str());
-  return bool(result == 0);
+bool SmallShell::alias_is_reserved(const char* alias_name){
+
+  std::string path_to_check = "/bin";                                         // This is where we eill manual search
+
+    int dir_FD = open(path_to_check.c_str(), O_RDONLY | O_DIRECTORY);
+    if (dir_FD < 0) {
+        return 0;
+    }
+
+    char buffer[8192];                                                                    // Buffer to hold directory entries
+    int num_bytes_read;
+
+    while ((num_bytes_read = syscall(SYS_getdents64, dir_FD, buffer, sizeof(buffer))) > 0) { // Read the directory contents into the buffer (SYS_getdents64 is 217 syscall)
+        int current_position = 0;                                                         // Track position in the buffer
+        
+        while (current_position < num_bytes_read) {                                       // Process each directory entry
+            linux_dirent64* dir_entry = (linux_dirent64*)(buffer + current_position);     // Cast to directory entry structure
+            std::string current_entry_name = dir_entry->entry_name;                       // Get the name of the entry
+
+            if (current_entry_name != "." && current_entry_name != "..") {                // Skip "." and ".." entries
+                std::string current_entry_path = string(path_to_check) + "/" + current_entry_name;
+                  if(_trim(current_entry_name.c_str()) == _trim(alias_name)){
+                    return true;
+                  }
+            }
+            current_position += dir_entry->record_length;                                 // Move to the next directory entry
+        }
+    }
+    close(dir_FD);    
+
+  return false;
+
 }
 
 string SmallShell::get_command_by_alias(std::string alias_name){
@@ -1256,20 +1265,17 @@ string SmallShell::get_command_by_alias(std::string alias_name){
 }
 
 void SmallShell::delete_alias_by_name(std::string alias_name){
-  // std::vector<Alias*>* TMP_aliasList = new std::vector<Alias*>;
-  for (auto it = m_aliasList.begin(); it != m_aliasList.end(); it++) {
 
-    if((*it) != nullptr){
-      if(alias_name == (*it)->get_name()){                    // If should be deleted
-        // delete *it;                                           // Delete memory contant
-        it = m_aliasList.erase(it);                           // Remove from vector
-      }
-      else{                                                   // If shouldn't be deleted
-        // (*TMP_aliasList).push_back(*it);
+  for (auto it = m_aliasList.begin(); it != m_aliasList.end(); ) {
+    if(*it){
+      if (alias_name == (*it)->get_name()) {
+          delete *it;  // Free the memory of the JobEntry object
+          it = m_aliasList.erase(it); // Remove the pointer from the vector
+      } else {
+          ++it;
       }
     }
   }
-  // set_new_alias_list(TMP_aliasList);                          // Clean the deleted and make the list more compact
 }
 
 JobsList* SmallShell::getJobsList(){return this->m_jobsList;}
@@ -1345,7 +1351,6 @@ void JobsList::printJobsListForKill(){
   for (auto it = jobsVector.begin(); it != jobsVector.end(); ++it) {
     std::cout << (*it)->getJobPid() << ": " << (*it)->getJobCmdLine() << std::endl;
   }
-  // std::cout << "Linux-shell:" << std::endl;
 }
 
 
@@ -1400,12 +1405,6 @@ JobsList::JobEntry* JobsList::getLastJob() {
   return jobsVector.back();
 }
 
-/*
-JobsList:: JobEntry *getLastStoppedJob(int *jobId) {
-  //ADD HERE
-}
-*/
-
 bool JobsList::empty()const {return jobsVector.empty();}
 
 ForegroundCommand::ForegroundCommand(const char *cmd_line, JobsList *jobs) : m_jobs(jobs), m_cmdLine(cmd_line) {}
@@ -1424,30 +1423,29 @@ void ForegroundCommand::execute(){
       else{
         JobsList::JobEntry* requastedJob = m_jobs->getLastJob();
         requastedJob -> set_stopped();
-        if( requastedJob != nullptr){                                                         // TODO consider writing it only once, more compact less readable
+        if( requastedJob != nullptr){
           SmallShell::getInstance().set_fg_pid(requastedJob->getPid());
-          std::cout << requastedJob->getJobCmdLine() << " " << requastedJob->getPid() << std::endl;                               // Print as declared in the PDF
+          std::cout << requastedJob->getJobCmdLine() << " " << requastedJob->getPid() << std::endl;          // Print as declared in the PDF
           waitpid(requastedJob->getPid(), &status, 0);                                                       // waitpid method
           SmallShell::getInstance().set_fg_pid(SmallShell::getInstance().get_pid());
         }
       }
     }
 
-    else if((argc == 2) && (atoi(args[1]) > 0)){   //TODO consider using >2 instead of =
+    else if((argc == 2) && (atoi(args[1]) > 0)){
       int jobId = atoi(args[1]);
       if(SmallShell::getInstance().getJobsList()->job_exist(jobId)){
         JobsList::JobEntry* requastedJob = m_jobs->getJobById(jobId);
         requastedJob -> set_stopped();      
-        SmallShell::getInstance().set_fg_pid(requastedJob->getPid());                                                                          // Status for waitpid usage
-        std::cout << requastedJob->getJobCmdLine() << " " << requastedJob->getPid() << std::endl;                   // Print as declared in the PDF   
-        waitpid(requastedJob->getPid(), &status, 0);                                           // waitpid method   
+        SmallShell::getInstance().set_fg_pid(requastedJob->getPid());                                         // Status for waitpid usage
+        std::cout << requastedJob->getJobCmdLine() << " " << requastedJob->getPid() << std::endl;             // Print as declared in the PDF   
+        waitpid(requastedJob->getPid(), &status, 0);                                                          // waitpid method   
         SmallShell::getInstance().set_fg_pid(SmallShell::getInstance().get_pid());         
       }
       else{
         std::cerr << "smash error: fg: job-id " << jobId << " does not exist" << std::endl;
       }
-    }
-
+    } 
     else{
       std::cerr << "smash error: fg: invalid arguments" << std::endl;
     }
@@ -1505,7 +1503,6 @@ void RedirectionCommand::execute(){
   int file_fd = open(m_file_name.c_str(), O_WRONLY | O_CREAT | (append_to_end ? O_APPEND : O_TRUNC),0644);
   if(file_fd == -1){
     perror("smash error: open failed");
-    // std::cout << "I failed opening" << std::endl;
     close(old_stdout_fd); 
     return;
   }
@@ -1516,8 +1513,6 @@ void RedirectionCommand::execute(){
     return;
   }
   close(file_fd);
-
-  // std::cout << "im executing command: " << m_command << std::endl;
 
   m_command->execute();
 
@@ -1533,7 +1528,7 @@ void RedirectionCommand::execute(){
 // ------------------------------------------------------End-of-section---------------------------------------------------------
 //****************************************************************************************************************************//
 //****************************************************************************************************************************//
-// ------------------------------------------Pipe Command methods section------------------------------------------------
+// ------------------------------------------Pipe Command methods section-------------------------------------------------------
 //------------------------------------------------------------------------------------------------------------------------------
 
 PipeCommand::PipeCommand(const char *cmd_line) : Command(cmd_line) {
@@ -1562,10 +1557,6 @@ PipeCommand::PipeCommand(const char *cmd_line) : Command(cmd_line) {
   delete m_first_command;
   delete m_second_command;
  }
-
-
-
-
 
 void PipeCommand::execute(){
   int pipe_read_write_fds[2];

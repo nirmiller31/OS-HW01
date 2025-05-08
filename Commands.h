@@ -204,8 +204,6 @@ public:
     virtual ~QuitCommand() {
     }
 
-    const char* take_second_arg(const char *cmd_line);
-
     void execute() override;
 
 private:
@@ -385,6 +383,14 @@ class JobsList {
 
 class SmallShell {
 public:
+
+struct linux_dirent64 {
+    ino64_t        inode;
+    off64_t        offset;
+    unsigned short record_length;
+    unsigned char  entry_type;
+    char           entry_name[]; // Flexible array
+};
     Command *CreateCommand(const char *cmd_line);
 
     SmallShell(SmallShell const &) = delete; // disable copy ctor
