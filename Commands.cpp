@@ -442,10 +442,6 @@ void AliasCommand::execute(){
       std::string aliasStr = match[1];
       std::string commandStr = match[2];
 
-      std::cout << "the alias key is: " << aliasStr << std::endl;
-      std::cout << "the alias cmd is: " << commandStr << std::endl;
-
-
       if(!SmallShell::getInstance().alias_is_reserved(aliasStr.c_str()) && !SmallShell::getInstance().alias_exist(aliasStr.c_str())){
         SmallShell::getInstance().add_alias(new SmallShell::Alias(aliasStr, commandStr));
       }
@@ -1158,8 +1154,6 @@ void ExternalCommand::execute(){
   if(background_command){_removeBackgroundSign(shorterCmd);}    // Remove the "&" from shortherCmd, we don't need it anymore
   _parseCommandLine(shorterCmd, args);                          // Take the version without the "&" and divide it to an array
 
-  std::cout << "im trying to executr: " << shorterCmd << std::endl;
-
   pid_t pid = fork();                                           // Create a child process
   
   if(pid == 0){                                                 // New child process code
@@ -1256,7 +1250,6 @@ string SmallShell::get_command_by_alias(std::string alias_name){
   for (auto it = m_aliasList.begin(); it != m_aliasList.end(); ++it) {
     if((*it) != nullptr) {
       if(alias_name == ((*it)->get_name())){
-        std::cout << "im returning: " << (*it)->get_command() << std::endl;
         result = (*it)->get_command();
       }
     }
