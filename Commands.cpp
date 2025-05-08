@@ -144,19 +144,25 @@ Command::~Command() {}
 
 BuiltInCommand::~BuiltInCommand() {}
 
-Command *SmallShell::CreateCommand(const char *cmd_line) {
+Command *SmallShell::CreateCommand(const char *input_cmd_line) {
 
   SmallShell::getInstance().getJobsList()->removeFinishedJobs();
+  char* cmd_line = new char[COMMAND_MAX_LENGTH];
 
-  string cmd_s = _trim(string(cmd_line));
+  string cmd_s = _trim(string(input_cmd_line));
   string firstWord = cmd_s.substr(0, cmd_s.find_first_of(" \n"));
 
   if(SmallShell::getInstance().alias_exist(firstWord.c_str())){                     // Check a case of an alias
     string alias_name = firstWord.c_str();                                          // If exist, than it is alias's name
-    cmd_line = SmallShell::getInstance().get_command_by_alias(alias_name).c_str();  // Extract the alias's command 
-    cmd_s = _trim(string(cmd_line));                                                // Repeat the same process for the alias
+    string aliased_cmd = SmallShell::getInstance().get_command_by_alias(alias_name);
+    strcpy(cmd_line, aliased_cmd.c_str());                                          // Convert the alias's command to const char 
+    cmd_s = _trim(aliased_cmd);                                                     // Repeat the same process for the alias
     firstWord = cmd_s.substr(0, cmd_s.find_first_of(" \n"));
   }
+  else{
+    strcpy(cmd_line, input_cmd_line);
+  }
+
   if (firstWord.compare("alias") == 0) {
     return new AliasCommand(cmd_line);
   }
@@ -444,7 +450,7 @@ void AliasCommand::execute(){
       }
 
   } else {
-      std::cerr << "smash error: alias: invalid alias format";
+      std::cerr << "smash error: alias: invalid alias format" << std::endl;
   }
 }
 //------------------------------------------------------------------------------------------------------------------------------
@@ -1143,9 +1149,6 @@ void ExternalCommand::execute(){
   char* args[COMMAND_MAX_ARGS + 1];                                     // To hold the cmd + [MAX]20 arguements
   char* shorterCmd = new char[m_cmdLine.size() + 1];
   strcpy(shorterCmd, m_cmdLine.c_str());                                // Create a shorter (pottentially) modifiable version
-
-  // int pipefd[2];
-  // pipe(pipefd);
 
   bool background_command = _isBackgroundComamnd(m_cmdLine.c_str());    // Check if it is a background command (if "&" in the end)
   if(background_command){_removeBackgroundSign(shorterCmd);}    // Remove the "&" from shortherCmd, we don't need it anymore
