@@ -11,7 +11,6 @@
 #define USED_BUFFER_SIZE (8192)
 
 class Command {
-    // TODO: Add your data members
 public:
     Command(const char *cmd_line) {};
     Command() {};
@@ -20,9 +19,6 @@ public:
 
     virtual void execute() = 0;
 
-    //virtual void prepare();
-    //virtual void cleanup();
-    // TODO: Add your extra methods if needed
 };
 
 class BuiltInCommand : public Command {
@@ -374,9 +370,7 @@ class JobsList {
         void updateMaxJobID();
     
         bool empty()const;
-    
-        // TODO: Add extra methods or modify exisitng ones as needed
-    
+        
     private:
         std::vector<JobEntry*> jobsVector;
         int maxJobId;
@@ -406,7 +400,7 @@ struct linux_dirent64 {
 
     ~SmallShell();
 
-    class Alias {                                       // TODO add a bool exist field to manage deletion
+    class Alias {                                       
         private:
             std::string m_aliasName;
             std::string m_aliasCommand;
