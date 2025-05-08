@@ -135,7 +135,6 @@ SmallShell::SmallShell() {
 }
 
 SmallShell::~SmallShell() {
-// TODO: add your implementation
 delete m_jobsList;
 }
 
@@ -143,11 +142,8 @@ std::string SmallShell::getLastCmdLine()const {return this->m_lastCmdLine;}
 
 Command::~Command() {}
 
-
 BuiltInCommand::~BuiltInCommand() {}
-/**
-* Creates and returns a pointer to Command class which matches the given command line (cmd_line)
-*/
+
 Command *SmallShell::CreateCommand(const char *cmd_line) {
 
   SmallShell::getInstance().getJobsList()->removeFinishedJobs();
@@ -226,7 +222,7 @@ Command *SmallShell::CreateCommand(const char *cmd_line) {
 //------------------------------------------------------------------------------------------------------------------------------
 void SmallShell::executeCommand(const char *cmd_line) {
   
-    char* args[20]; 
+    char* args[COMMAND_MAX_ARGS + 1]; 
     int argc = _parseCommandLine(cmd_line, args);
     if(argc <= 0){
     return;
@@ -297,8 +293,8 @@ void ShowPidCommand::execute() {
 //------------------------------------------------------------------------------------------------------------------------------
 
 void GetCurrDirCommand::execute() {
-  char pwd[200];
-  getcwd(pwd, sizeof(pwd));       // &&&&&&&&&&&&&&&& TODO probebly fixx
+  char pwd[COMMAND_MAX_LENGTH];
+  syscall(SYS_getcwd, pwd, sizeof(pwd));
   std::cout << pwd << std::endl;
 }
 
@@ -308,7 +304,6 @@ void GetCurrDirCommand::execute() {
 //****************************************************************************************************************************//
 // ---------------------------------------------------Change Dir method section-------------------------------------------------
 //------------------------------------------------------------------------------------------------------------------------------
-
 const char* ChangeDirCommand::take_second_arg(const char *cmd_line) {
 
   const char* tmp_cmd_line;
@@ -321,16 +316,21 @@ const char* ChangeDirCommand::take_second_arg(const char *cmd_line) {
     while (*tmp_cmd_line && !std::isspace(*tmp_cmd_line)) ++tmp_cmd_line;   // Skip the given path
     while (*tmp_cmd_line && std::isspace(*tmp_cmd_line)) ++tmp_cmd_line;    // Skip the spaces after the path
     if(*tmp_cmd_line) {                                                     // Check if something left after: [cd][spaces][<path>][spaces][---something?---]
-      std::cerr << "smash error: cd: too many arguements" << std::endl;
+      std::cerr << "smash error: cd: too many arguments" << std::endl;
+      return nullptr;
     }
     return *cmd_line ? cmd_line : nullptr;
 }
 
 void ChangeDirCommand::execute() {
 
-  char pwd[200];
-  getcwd(pwd, sizeof(pwd));       // &&&&&&&&&&&&&&&& TODO probebly fixx
+  char pwd[COMMAND_MAX_LENGTH];
+  syscall(SYS_getcwd, pwd, sizeof(pwd));
   std::string old_string = std::string(pwd);
+
+  if(m_newDir == nullptr){
+    return;
+  }
 
   if (std::string(m_newDir).compare("-") == 0) {                            // Check if special key activated
     const char* last_dir = *m_lastDir;                                      // Only use for the previous path
@@ -362,7 +362,7 @@ void ChangeDirCommand::execute() {
 //------------------------------------------------------------------------------------------------------------------------------
 void QuitCommand::execute(){
 
-  char* args[20]; 
+  char* args[COMMAND_MAX_ARGS + 1]; 
   int argc = _parseCommandLine(m_cmdLine, args);
   if(argc == 1){
     exit(0);
@@ -388,7 +388,7 @@ void KillCommand::execute(){
 
   SmallShell::getInstance().getJobsList()->removeFinishedJobs();
 
-  char* args[20]; 
+  char* args[COMMAND_MAX_ARGS + 1]; 
   int argc = _parseCommandLine(m_cmdLine, args);
 
   int jobIsignal_num, jobId;
@@ -423,7 +423,7 @@ void KillCommand::execute(){
 //------------------------------------------------------------------------------------------------------------------------------
 void AliasCommand::execute(){
 
-  char* args[20]; 
+  char* args[COMMAND_MAX_ARGS + 1]; 
   int argc = _parseCommandLine(m_cmdLine, args);
   std::regex pattern(R"(^alias\s+([a-zA-Z0-9_]+)='([^']*)'$)");
   std::cmatch match;
@@ -444,7 +444,7 @@ void AliasCommand::execute(){
       }
 
   } else {
-      std::cerr << "Invalid format.\n";
+      std::cerr << "smash error: alias: invalid alias format";
   }
 }
 //------------------------------------------------------------------------------------------------------------------------------
@@ -455,10 +455,10 @@ void AliasCommand::execute(){
 //------------------------------------------------------------------------------------------------------------------------------
 void UnAliasCommand::execute(){
 
-  char* args[21]; 
+  char* args[COMMAND_MAX_ARGS + 1]; 
   int argc = _parseCommandLine(m_cmdLine, args);
   if(argc == 1){
-    std::cerr << "smash error: unalias: not enough arguements" << std::endl;
+    std::cerr << "smash error: unalias: not enough arguments" << std::endl;
   }
   else{
     for(int i = 1 ; i<argc ; i++){
@@ -479,10 +479,10 @@ void UnAliasCommand::execute(){
 //------------------------------------------------------------------------------------------------------------------------------
 void UnSetEnvCommand::execute(){
 
-  char* args[21]; 
+  char* args[COMMAND_MAX_ARGS + 1]; 
   int argc = _parseCommandLine(m_cmdLine, args);
   if(argc == 1){
-    std::cerr << "smash error: unsetenv: not enough arguements" << std::endl;
+    std::cerr << "smash error: unsetenv: not enough arguments" << std::endl;
   }
   else{
     for(int i = 1 ; i<argc ; i++){
@@ -525,9 +525,8 @@ bool UnSetEnvCommand::is_environment_variable(const char* varName) {
       return false;
   }
 
-  const size_t bufferSize = 8192;                                       // 8 KB buffer
-  char buffer[bufferSize];
-  ssize_t bytesRead = read(fd, buffer, bufferSize);
+  char buffer[USED_BUFFER_SIZE];
+  ssize_t bytesRead = read(fd, buffer, USED_BUFFER_SIZE);
   close(fd);
 
   string current_check = "";
@@ -745,10 +744,10 @@ double WatchProcCommand::getMemUsage(pid_t pid){
 
 void WatchProcCommand::execute(){
 
-  char* args[21]; 
+  char* args[COMMAND_MAX_ARGS + 1]; 
   int argc = _parseCommandLine(m_cmdLine, args);
   if(argc != 2 || atoi(args[1]) <= 0){
-    std::cerr << "smash error: watchproc: invalid arguements" << std::endl;
+    std::cerr << "smash error: watchproc: invalid argements" << std::endl;
   }
   else{
     pid_t pid_to_print = atoi(args[1]);
@@ -785,10 +784,9 @@ void WhoAmICommand::get_user_and_path_by_uid(uid_t shell_uid, string result[2]){
       perror("smash error: open failed");
       return;
   }
-
-  const size_t bufferSize = 8192;                                       // 8 KB buffer
-  char buffer[bufferSize];
-  ssize_t bytesRead = read(fd, buffer, bufferSize);
+  
+  char buffer[USED_BUFFER_SIZE];
+  ssize_t bytesRead = read(fd, buffer, USED_BUFFER_SIZE);
   close(fd);
 
   bool username_read_enable = true;
@@ -860,9 +858,8 @@ uid_t SmallShell::get_shell_uid(){
       return false;
   }
 
-  const size_t bufferSize = 8192;                                       // 8 KB buffer
-  char buffer[bufferSize];
-  ssize_t bytesRead = read(fd, buffer, bufferSize);
+  char buffer[USED_BUFFER_SIZE];
+  ssize_t bytesRead = read(fd, buffer, USED_BUFFER_SIZE);
   close(fd);
 
   bool read_enable = false;
@@ -892,7 +889,7 @@ uid_t SmallShell::get_shell_uid(){
 //------------------------------------------------------------------------------------------------------------------------------
 void DiskUsageCommand::execute(){
 
-  char* args[21]; 
+  char* args[COMMAND_MAX_ARGS + 1]; 
   int argc = _parseCommandLine(m_cmdLine, args);
 
   if(argc == 1){
@@ -910,18 +907,18 @@ void DiskUsageCommand::execute(){
     std::cout << "Total disk usage: " << (sum_directory_files(args[1]) / 1024.0) << " KB" << std::endl;
   }
   else{
-    std::cerr << "smash error: du: too many arguements" << std::endl;
+    std::cerr << "smash error: du: too many arguments" << std::endl;
   }
 }
 
 
 string SmallShell::get_shell_pwd(){
-  char pwd[200];
+  char pwd[COMMAND_MAX_LENGTH];
   ssize_t len = syscall(SYS_readlink, "/proc/self/cwd", pwd, sizeof(pwd) - 1);
   if (len != -1) {
     pwd[len] = '\0';
   } else {
-    std::cout << "Failed to read /proc/self/cwd\n";
+    std::cerr << "Failed to read /proc/self/cwd\n";
   }
   return pwd;
 }
@@ -934,13 +931,13 @@ int DiskUsageCommand::sum_directory_files(const char* dirPath) {
         return 0;
     }
 
-    char buffer[8192];                                                                    // Buffer to hold directory entries
+    char buffer[USED_BUFFER_SIZE];                                                                    // Buffer to hold directory entries
     int num_bytes_read;
 
     struct stat initial_file_stat;
     stat(dirPath, &initial_file_stat);
 
-    int dir_sum = (initial_file_stat.st_blocks * 512);
+    int dir_sum = (initial_file_stat.st_blocks * DISK_USAGE_BLOCK_SIZE);
 
     while ((num_bytes_read = syscall(SYS_getdents64, dir_FD, buffer, sizeof(buffer))) > 0) { // Read the directory contents into the buffer (SYS_getdents64 is 217 syscall)
         int current_position = 0;                                                         // Track position in the buffer
@@ -951,7 +948,6 @@ int DiskUsageCommand::sum_directory_files(const char* dirPath) {
 
             if (current_entry_name != "." && current_entry_name != "..") {                // Skip "." and ".." entries
                 std::string current_entry_path = string(dirPath) + "/" + current_entry_name;
-                // std::cout << current_entry_path << '\n';                                  // Print the full path of the entry (Debug)
 
                 if (dir_entry->entry_type == DT_DIR) {                                    // If is a sub-directory
                     std::string sub_dir_path = std::string(dirPath) + "/" + current_entry_name;
@@ -960,7 +956,7 @@ int DiskUsageCommand::sum_directory_files(const char* dirPath) {
                 else{
                   struct stat file_stat;
                   stat(current_entry_path.c_str(), &file_stat);
-                  dir_sum += (file_stat.st_blocks * 512);                                 // Calculation of disk usage
+                  dir_sum += (file_stat.st_blocks * DISK_USAGE_BLOCK_SIZE);               // Calculation of disk usage
                 }
             }
             current_position += dir_entry->record_length;                                 // Move to the next directory entry
@@ -977,7 +973,7 @@ int DiskUsageCommand::sum_directory_files(const char* dirPath) {
 //------------------------------------------------------------------------------------------------------------------------------
 void NetInfo::execute(){
 
-  char* args[21]; 
+  char* args[COMMAND_MAX_ARGS + 1]; 
   int argc = _parseCommandLine(m_cmdLine, args);
 
   if(argc == 1){
@@ -992,7 +988,7 @@ void NetInfo::execute(){
     }
   }
   else{
-    // TODO handle with it too
+    std::cerr << "smash error: netinfo: too many arguments" << std::endl;
   }
 
 }
@@ -1048,9 +1044,8 @@ string NetInfo::get_dg_for_interface(string input_interface_name){
       return "";
   }
 
-  const size_t bufferSize = 8192;                                       // 8 KB buffer
-  char buffer[bufferSize];
-  ssize_t bytesRead = read(fd, buffer, bufferSize);
+  char buffer[USED_BUFFER_SIZE];
+  ssize_t bytesRead = read(fd, buffer, USED_BUFFER_SIZE);
   close(fd);
 
   char* args[bytesRead];
@@ -1076,9 +1071,8 @@ void NetInfo::print_DNS_servers(){
       return;
   }
 
-  const size_t bufferSize = 8192;                                       // 8 KB buffer
-  char buffer[bufferSize];
-  ssize_t bytesRead = read(fd, buffer, bufferSize);
+  char buffer[USED_BUFFER_SIZE];
+  ssize_t bytesRead = read(fd, buffer, USED_BUFFER_SIZE);
   close(fd);
 
   int DNS_index = 0;
@@ -1108,9 +1102,8 @@ bool NetInfo::interface_exist(string input_interface_name){
       return false;
   }
 
-  const size_t bufferSize = 8192;                                       // 8 KB buffer
-  char buffer[bufferSize];
-  ssize_t bytesRead = read(fd, buffer, bufferSize);
+  char buffer[USED_BUFFER_SIZE];
+  ssize_t bytesRead = read(fd, buffer, USED_BUFFER_SIZE);
   close(fd);
 
   string interface_name = "";
@@ -1147,7 +1140,7 @@ bool NetInfo::interface_exist(string input_interface_name){
 // ------------------------------------------External Command methods section---------------------------------------------------
 //------------------------------------------------------------------------------------------------------------------------------
 void ExternalCommand::execute(){
-  char* args[21];                                               // To hold the cmd + [MAX]20 arguements
+  char* args[COMMAND_MAX_ARGS + 1];                                     // To hold the cmd + [MAX]20 arguements
   char* shorterCmd = new char[m_cmdLine.size() + 1];
   strcpy(shorterCmd, m_cmdLine.c_str());                                // Create a shorter (pottentially) modifiable version
 
@@ -1163,14 +1156,12 @@ void ExternalCommand::execute(){
   if(pid == 0){                                                 // New child process code
     setpgrp();                                     
     if(_isSpecialExternalComamnd(shorterCmd)) {
-      char* bash_exec[] = {(char*)"bash", (char*)"-c", shorterCmd, nullptr};
-      // char* bash_exec[] = {"bash", "-c", shorterCmd, nullptr};  // Create an array to run: "bash -c "<original input>""
+      char* bash_exec[] = {(char*)"bash", (char*)"-c", shorterCmd, nullptr};  // Create an array to run: "bash -c "<original input>""
       if (execvp("bash", bash_exec) == -1){
         perror("smash error: execvp failed");
       }
     }
     if (execvp(args[0], args) == -1) {                          // Search for the command in PATH env, with our arguments
-      // std::cout << "im about to fail with command: " << shorterCmd << std::endl;
       perror("smash error: execvp failed");
     }
     SmallShell::getInstance().getJobsList()->getLastJob()->set_stopped();   // If execvp fail so out of vector
@@ -1180,6 +1171,7 @@ void ExternalCommand::execute(){
   else if(pid > 0){                                              // Parent process code
     if(background_command){
       SmallShell::getInstance().getJobsList()->addJob(this, pid); // If parent process: add the child's process Entry to jobs vector
+      waitpid(pid, nullptr ,WNOHANG);
     }
     else {
       SmallShell::getInstance().set_fg_pid(pid);
@@ -1225,7 +1217,7 @@ bool SmallShell::alias_is_reserved(const char* alias_name){
         return 0;
     }
 
-    char buffer[8192];                                                                    // Buffer to hold directory entries
+    char buffer[USED_BUFFER_SIZE];                                                        // Buffer to hold directory entries
     int num_bytes_read;
 
     while ((num_bytes_read = syscall(SYS_getdents64, dir_FD, buffer, sizeof(buffer))) > 0) { // Read the directory contents into the buffer (SYS_getdents64 is 217 syscall)
@@ -1361,7 +1353,6 @@ void JobsList:: killAllJobs(){
       pid_t pid_to_kill = (*it)->getPid();
       kill(pid_to_kill, SIGKILL);
       (*it)->set_stopped();
-      // waitpid(pid_to_kill, nullptr, WNOHANG);   // TODO consider to use because of zombies
   }
 }
 
@@ -1412,7 +1403,7 @@ void ForegroundCommand::execute(){
   if(m_jobs != nullptr){
     this->m_jobs->removeFinishedJobs();
 
-    char* args[20]; 
+    char* args[COMMAND_MAX_ARGS + 1]; 
     int argc = _parseCommandLine(m_cmdLine, args);
     if(argc == 1){;
       if(m_jobs->empty()){

@@ -7,6 +7,8 @@
 
 #define COMMAND_MAX_LENGTH (200)
 #define COMMAND_MAX_ARGS (20)
+#define DISK_USAGE_BLOCK_SIZE (512)
+#define USED_BUFFER_SIZE (8192)
 
 class Command {
     // TODO: Add your data members
