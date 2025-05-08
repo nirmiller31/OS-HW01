@@ -413,23 +413,23 @@ void KillCommand::execute(){
   int jobIsignal_num, jobId;
   JobsList::JobEntry* job_entry;
 
-  if(args[1]) {
-    jobIsignal_num = atoi(args[1]);
-  }
-  if((argc != 3 || (jobIsignal_num >= 0))){
-    std::cerr << "smash error: kill: invalid arguements" << std::endl;
+  if((argc != 3) || (atoi(args[1]) >= 0) || (atoi(args[2]) <= 0)){
+    std::cerr << "smash error: kill: invalid arguments" << std::endl;
   }
   else{                                    // Verify correct number of arguments, and exsitance of '-' before the signal
-    jobIsignal_num = abs(jobIsignal_num);
+    jobIsignal_num = atoi(args[1]);
     jobId = atoi(args[2]);
+    jobIsignal_num = abs(jobIsignal_num);
     job_entry = SmallShell::getInstance().getJobsList()->getJobById(jobId);
 
     if(job_entry != nullptr){                                               // Check that a job with this ID exist
-      std::cout << "signal number " << jobIsignal_num << " was sent to pid " << job_entry->getPid() << std::endl;
-      job_entry -> set_stopped();
+      // job_entry -> set_stopped();
       if(kill(job_entry->getPid(), jobIsignal_num) != 0){
         // std::cerr << "smash error: " << jobIsignal_num << " failed" << std::endl;
-        std::cerr << "smash error: kill: invalid arguements" << std::endl;
+        std::cerr << "smash error: kill failed: Invalid argument" << std::endl;
+      }
+      else{
+        std::cout << "signal number " << jobIsignal_num << " was sent to pid " << job_entry->getPid() << std::endl;
       }
     }
     else {
@@ -745,10 +745,12 @@ double WatchProcCommand::getMemUsage(pid_t pid){
         return 0;
       }
       std::string return_str(&buffer[start_index],  i - start_index);
-      size_t first_num = return_str.find_first_of("0123456789");
-      size_t last_num = return_str.find_last_of("0123456789");
+      // size_t first_num = return_str.find_first_of("0123456789");
+      // size_t last_num = return_str.find_last_of("0123456789");
+      return_str.find_first_of("0123456789");
+      return_str.find_last_of("0123456789");
       double number = 0;
-      for(int i = 0 ; i < return_str.size() ; i++){
+      for(size_t i = 0 ; i < return_str.size() ; i++){
           if(return_str.at(i) < '0' || return_str.at(i)> '9'){
             continue;
           }
@@ -1170,6 +1172,9 @@ void ExternalCommand::execute(){
   char* shorterCmd = new char[m_cmdLine.size() + 1];
   strcpy(shorterCmd, m_cmdLine.c_str());                                // Create a shorter (pottentially) modifiable version
 
+  // int pipefd[2];
+  // pipe(pipefd);
+
   bool background_command = _isBackgroundComamnd(m_cmdLine.c_str());    // Check if it is a background command (if "&" in the end)
   if(background_command){_removeBackgroundSign(shorterCmd);}    // Remove the "&" from shortherCmd, we don't need it anymore
   _parseCommandLine(shorterCmd, args);                          // Take the version without the "&" and divide it to an array
@@ -1186,6 +1191,7 @@ void ExternalCommand::execute(){
       }
     }
     if (execvp(args[0], args) == -1) {                          // Search for the command in PATH env, with our arguments
+      // std::cout << "im about to fail with command: " << shorterCmd << std::endl;
       perror("smash error: execvp failed");
     }
     SmallShell::getInstance().getJobsList()->getLastJob()->set_stopped();   // If execvp fail so out of vector
@@ -1496,10 +1502,10 @@ void RedirectionCommand::execute(){
     return;
   }
 
-
-  int file_fd = open(m_file_name.c_str(), O_WRONLY | O_CREAT | (append_to_end ? O_APPEND : O_TRUNC),0655);
+  int file_fd = open(m_file_name.c_str(), O_WRONLY | O_CREAT | (append_to_end ? O_APPEND : O_TRUNC),0644);
   if(file_fd == -1){
     perror("smash error: open failed");
+    // std::cout << "I failed opening" << std::endl;
     close(old_stdout_fd); 
     return;
   }
@@ -1510,6 +1516,8 @@ void RedirectionCommand::execute(){
     return;
   }
   close(file_fd);
+
+  // std::cout << "im executing command: " << m_command << std::endl;
 
   m_command->execute();
 

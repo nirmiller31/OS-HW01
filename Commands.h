@@ -119,8 +119,6 @@ private:
     const char* m_cmdLine;
 public:
 
-// #define IFNAMSIZ      16
-
     NetInfo(const char *cmd_line) {m_cmdLine = cmd_line;}
 
     virtual ~NetInfo() {
@@ -143,7 +141,6 @@ public:
 };
 
 class ChangeDirCommand : public BuiltInCommand {
-    // TODO: Add your data members public:
 public:
     ChangeDirCommand(const char *cmd_line, char** plastPwd) {
         m_newDir = take_second_arg(cmd_line);
@@ -198,7 +195,6 @@ class JobsList;
 class SmallShell;
 
 class QuitCommand : public BuiltInCommand {
-    // TODO: Add your data members public:
 public:
     QuitCommand(const char *cmd_line, JobsList *jobs) {
         m_cmdLine = cmd_line;
@@ -233,7 +229,6 @@ private:
 };
 
 class KillCommand : public BuiltInCommand {
-    // TODO: Add your data members
 public:
     KillCommand(const char *cmd_line, JobsList *jobs){
         m_cmdLine = cmd_line;
