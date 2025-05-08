@@ -260,7 +260,7 @@ char** SmallShell::get_last_dir() {
 // ---------------------------------------------Built-in Command methods section------------------------------------------------
 //------------------------------------------------------------------------------------------------------------------------------
 
-void BuiltInCommand::execute() {}                       // Maybe remove, if execute will be full
+void BuiltInCommand::execute() {}                      
 
 std::string ChPromtCommand::mask_chprompt(const char *cmd_line) {
   std::string tmp_string;
@@ -380,9 +380,6 @@ void QuitCommand::execute(){
       m_jobs->killAllJobs();
       exit(0);
   }
-  else{
-    // handle this senario (?) TODO
-  }
 }
 //------------------------------------------------------------------------------------------------------------------------------
 // ------------------------------------------------------End-of-section---------------------------------------------------------
@@ -403,13 +400,13 @@ void KillCommand::execute(){
   if((argc != 3) || (atoi(args[1]) >= 0) || (atoi(args[2]) <= 0)){
     std::cerr << "smash error: kill: invalid arguments" << std::endl;
   }
-  else{                                    // Verify correct number of arguments, and exsitance of '-' before the signal
+  else{                                    
     jobIsignal_num = atoi(args[1]);
     jobId = atoi(args[2]);
     jobIsignal_num = abs(jobIsignal_num);
     job_entry = SmallShell::getInstance().getJobsList()->getJobById(jobId);
 
-    if(job_entry != nullptr){                                               // Check that a job with this ID exist
+    if(job_entry != nullptr){                                                                                         // Check that a job with this ID exist
       std::cout << "signal number " << jobIsignal_num << " was sent to pid " << job_entry->getPid() << std::endl;
       if(kill(job_entry->getPid(), jobIsignal_num) != 0){
         std::cerr << "smash error: kill failed: Invalid argument" << std::endl;                                      // Probably still get the print!!
@@ -561,7 +558,7 @@ bool UnSetEnvCommand::is_environment_variable(const char* varName) {
 // ---------------------------------------Watch Procces Command methods section-------------------------------------------------
 //------------------------------------------------------------------------------------------------------------------------------
 
- unsigned long long WatchProcCommand::getProcCpuTime(pid_t pid){ //!!!!!!check if return 0 is not an available value and if it is change the error return
+ unsigned long long WatchProcCommand::getProcCpuTime(pid_t pid){
   std::string stat_path = "/proc/" + to_string(pid) + "/stat";
   int fd = open(stat_path.c_str(), O_RDONLY );
   if(fd == -1){
@@ -727,19 +724,13 @@ double WatchProcCommand::getMemUsage(pid_t pid){
         return 0;
       }
       std::string return_str(&buffer[start_index],  i - start_index);
-      // size_t first_num = return_str.find_first_of("0123456789");
-      // size_t last_num = return_str.find_last_of("0123456789");
-      return_str.find_first_of("0123456789");
-      return_str.find_last_of("0123456789");
       double number = 0;
       for(size_t i = 0 ; i < return_str.size() ; i++){
           if(return_str.at(i) < '0' || return_str.at(i)> '9'){
             continue;
           }
           number = 10*number + (return_str.at(i) -'0');
-      }
-      //_trim(return_str)
-       
+      }  
       return number / 1024;
     }
     i++;
@@ -758,7 +749,7 @@ void WatchProcCommand::execute(){
   else{
     pid_t pid_to_print = atoi(args[1]);
     if(kill(pid_to_print, 0) == 0){                  // Process exist, and we have permission
-      //std::cout << std::fixed << setprecision(1);
+      std::cout << std::fixed << setprecision(1);
       std::cout << "PID: " << pid_to_print << " | CPU Usage: " << getCpuUsage(pid_to_print) << "%" <<" | Memory Usage: " << getMemUsage(pid_to_print) <<" MB" << std::endl;
 
     }
@@ -1213,7 +1204,7 @@ void SmallShell::print_alias(){
 
 bool SmallShell::alias_is_reserved(const char* alias_name){
 
-  std::string path_to_check = "/bin";                                         // This is where we eill manual search
+  std::string path_to_check = "/bin";                                                     // This is where we eill manual search
 
     int dir_FD = open(path_to_check.c_str(), O_RDONLY | O_DIRECTORY);
     if (dir_FD < 0) {
@@ -1262,8 +1253,8 @@ void SmallShell::delete_alias_by_name(std::string alias_name){
   for (auto it = m_aliasList.begin(); it != m_aliasList.end(); ) {
     if(*it){
       if (alias_name == (*it)->get_name()) {
-          delete *it;  // Free the memory of the JobEntry object
-          it = m_aliasList.erase(it); // Remove the pointer from the vector
+          delete *it;                               // Free the memory of the JobEntry object
+          it = m_aliasList.erase(it);               // Remove the pointer from the vector
       } else {
           ++it;
       }
@@ -1286,7 +1277,7 @@ void JobsCommand::execute(){
     m_jobs->printJobsList();
 }
 
-//_____________________ Jobs List implemintation _____________________ //
+//____________________________________________________________ Jobs List implemintation _________________________________________________________________________________//
 
 JobsList::JobEntry::JobEntry(int newJobId, pid_t newJobPid, Command *cmd) : m_jobId(newJobId), m_pid(newJobPid), m_jobCmdLine(SmallShell::getInstance().getLastCmdLine()){
   m_stopped = false;
@@ -1351,7 +1342,7 @@ void JobsList::printJobsListForKill(){
 void JobsList:: killAllJobs(){
   this->removeFinishedJobs();
   for (auto it = jobsVector.begin(); it != jobsVector.end(); ++it) {
-      if (*it == nullptr) continue; // skip null entries
+      if (*it == nullptr) continue;                                       // skip null entries
       
       pid_t pid_to_kill = (*it)->getPid();
       kill(pid_to_kill, SIGKILL);
@@ -1359,7 +1350,7 @@ void JobsList:: killAllJobs(){
   }
 }
 
-//___remove all the finished jobs from the jobs list___//
+//___________________________remove all the finished jobs from the jobs list________________________________//
 void JobsList::removeFinishedJobs() {
   for (auto it = jobsVector.begin(); it != jobsVector.end(); ) {
       int status;
@@ -1367,8 +1358,8 @@ void JobsList::removeFinishedJobs() {
       pid_t result = waitpid(pid_to_delete, &status, WNOHANG);
 
       if ((*it)->is_stopped() || (pid_to_delete == result)) {
-          delete *it;  // Free the memory of the JobEntry object
-          it = jobsVector.erase(it); // Remove the pointer from the vector
+          delete *it;                                               // Free the memory of the JobEntry object
+          it = jobsVector.erase(it);                                // Remove the pointer from the vector
       } else {
           ++it;
       }
@@ -1384,7 +1375,7 @@ JobsList::JobEntry* JobsList::getJobById(int jobId) {
       });
 
   if (it != jobsVector.end()) {
-      return *it; // No need to take address
+      return *it;                                   
   }
   return nullptr;
 }
@@ -1525,7 +1516,7 @@ void RedirectionCommand::execute(){
 
 PipeCommand::PipeCommand(const char *cmd_line) : Command(cmd_line) {
   std::string str_cmd_line(cmd_line);
-  //maybe need to add ignore background like redirection command
+  
   
   size_t index;
 
